@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Outlook Mode preferences</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <main>
+    <h1>Outlook Mode <span id="version" class="hint"></span></h1>
+    <div class="hint">Outlook-style features for Thunderbird. Changes apply to new compose windows and newly opened folders.</div>
+    <nav class="toc">
+      <a href="#sync">Sync</a>
+      <a href="#reading-pane">Reading pane</a>
+      <a href="#signature">Signature</a>
+      <a href="#cleanup">Cleanup</a>
+      <a href="#reply">Reply &amp; pins</a>
+      <a href="#sending">Sending</a>
+      <a href="#scheduled-mail">Scheduled mail</a>
+      <a href="#mentions">@Mentions</a>
+      <a href="#quick-steps">Quick Steps</a>
+      <a href="#shortcuts">Shortcuts</a>
+      <a href="#diagnostics">Diagnostics</a>
+    </nav>
+
+    <h2 id="sync">Sync between devices</h2>
+    <div class="card">
+      <label class="toggle"><input type="checkbox" id="settingsSync"> Sync my Thunderbird settings between devices, through my Microsoft 365 mailbox</label>
+      <div class="sync-categories">
+        <label class="toggle"><input type="checkbox" id="sync-prefs"> General settings: layout, reading, composing, fonts, tags, calendar view</label>
+        <label class="toggle"><input type="checkbox" id="sync-accounts"> Account settings: signature, reply position, Sent/Drafts folders, check for new mail</label>
+        <label class="toggle"><input type="checkbox" id="sync-filters"> Message filters</label>
+        <label class="toggle"><input type="checkbox" id="sync-contacts"> Local address books (Personal, Collected Addresses, your own books)</label>
+        <label class="toggle"><input type="checkbox" id="sync-addon"> Outlook Mode preferences and Quick Steps</label>
+      </div>
+      <div class="hint">Turn it on first on the device whose settings you want to keep; a device that joins later takes the synced values (Undo puts its own back). Each account must be added once on every device: passwords, sign-ins, encryption keys and file paths are never synced. The data is kept in a hidden folder “Outlook Mode Sync” in your mailbox; Thunderbird syncs every 10 minutes and at startup. Pins sync on their own (see above).</div>
+      <pre id="sync-status" class="hint"></pre>
+      <div class="actions">
+        <button id="sync-now">Sync now</button>
+        <button id="sync-undo">Undo last sync</button>
+      </div>
+      <label class="toggle"><input type="checkbox" id="collectContacts"> Add everyone I have written to or replied to into <b>Collected Addresses</b> (from all my mail, then from new mail)</label>
+      <div class="hint">Address suggestions then know everyone you have been in touch with. With “Local address books” synced above, these contacts are the same on all your devices. Addresses already in an address book, your own addresses and no-reply senders are skipped.</div>
+      <pre id="collect-status" class="hint"></pre>
+      <div class="actions">
+        <button id="collect-now">Collect from all mail now</button>
+      </div>
+      <label class="toggle"><input type="checkbox" id="contactCompanyFormat"> New contacts in the company format: <b>email first</b>, the name of a known address filled in, and a <b>Company – department</b> field (e.g. <i>Contoso-RND-HN</i>) that suggests the codes already used</label>
+      <div class="hint">In Address Book → New Contact: paste <i>Name (Contoso-RND-HN) &lt;address&gt;</i> (as copied from a To/From line) into the email field, or type the address: its name is taken from your address books and mail. Picking a code sets Company, Department and the (…) after the display name. Only data on this computer is used.</div>
+      <label class="toggle"><input type="checkbox" id="refreshButton"> Show a refresh button (⟳) above the message list: gets new mail and syncs settings, pins and contacts at once</label>
+      <label class="toggle"><input type="checkbox" id="refreshKey"> F5 does the same as the refresh button (Shift+F5 still only gets new mail for all accounts)</label>
+    </div>
+
+    <h2 id="reading-pane">Reading pane</h2>
+    <div class="card">
+      <label class="toggle"><input type="checkbox" id="readingPaneNewestFirst"> Show the newest message of a conversation on top</label>
+      <label class="toggle"><input type="checkbox" id="markConversationRead"> Opening a mail marks its whole conversation as read, as in Outlook (otherwise only the mail you click)</label>
+      <label class="toggle"><input type="checkbox" id="readingPaneExpandAll"> Open every message of a conversation, as in Outlook: each mail shown on its own, with its own attachments, instead of the newest one quoting the rest (click a message's header to close it)</label>
+      <label class="toggle"><input type="checkbox" id="readingPaneFoldQuotes"> Fold the earlier mail quoted below each message (Outlook's From / Sent block, “… wrote:”), since it is shown above as a message of its own; “show quoted text” brings it back</label>
+      <label class="toggle"><input type="checkbox" id="readingPaneAttachmentsTop"> Show each message's attachments above its text, as in Outlook (instead of below it)</label>
+      <label class="toggle"><input type="checkbox" id="readingPaneLatestOnly"> When messages are not all opened: show only the newest message (it quotes the earlier ones); earlier collapsed messages stay behind a “Show earlier messages” link</label>
+      <label class="toggle"><input type="checkbox" id="outlookSearch"> Outlook-style search in the search box at the top: people and mail suggested while you type, results in the message list (no new tab), filters, <code>from:</code> <code>to:</code> <code>subject:</code> <code>has:attachment</code>…</label>
+      <label class="toggle"><input type="checkbox" id="readingPaneOutlookHeader"> Outlook-style message header: separate To and Cc lines (click them to see everyone, with addresses) and the full date</label>
+      <label class="toggle"><input type="checkbox" id="readingPaneLight"> White reading pane, like Outlook, also with a dark Thunderbird theme; the ◐ button (Conversations' or Thunderbird's own, without Conversations) switches it, header and mail text, to dark and back</label>
+      <label class="toggle"><input type="checkbox" id="inlineReply"> Reply, Reply all and Forward inline in the reading pane, without a compose window</label>
+      <label class="toggle"><input type="checkbox" id="inlineNewMessage"> Write new messages in a pane at the bottom of the main window, without a compose window (one tab per message; minimize, maximize or drag its top edge to resize)</label>
+      <div class="hint">Works in the conversation view of the <b>Thunderbird Conversations</b> add-on. Reply buttons, Ctrl+R, Ctrl+Shift+R, Ctrl+L and Thunderbird's own Reply/Forward buttons open the reply above the newest message; the original is quoted below your text when it is sent. Undo Send applies. <b>Pop out</b> moves the reply to a compose window (for encryption, read receipts or complex formatting). Drafts are kept while Thunderbird runs; you are asked before quitting with unsent replies.</div>
+      <pre id="pane-status" class="hint"></pre>
+      <div id="conversations-advice" class="hint" hidden></div>
+    </div>
+
+    <h2 id="signature">Signature</h2>
+    <div class="card">
+      <div class="hint">Use the signature you had in Outlook, exactly as it was, with its tables and pictures:
+        <ul>
+          <li><b>From a mail you sent from Outlook</b> (best: works with new Outlook and Outlook on the web): in the message list, select one of your sent mails that has the signature, then click <i>Use the signature in the selected mail</i>.</li>
+          <li><b>From classic Outlook's file</b>: on the Windows PC, copy the folder <code>%APPDATA%\Microsoft\Signatures</code> (each signature is a <code>.htm</code> file plus a <code>_files</code> folder with its pictures), then choose the <code>.htm</code> file.</li>
+        </ul>
+        The pictures are stored inside the signature, so it works in the reading pane, the new-message pane and the compose window, and syncs to your other devices.</div>
+      <div class="actions">
+        <select id="signature-identity"></select>
+        <button id="signature-from-mail">Use the signature in the selected mail</button>
+        <button id="import-signature">Import Outlook signature (.htm)…</button>
+      </div>
+      <pre id="signature-status" class="hint"></pre>
+      <div class="hint">Preview:</div>
+      <iframe id="signature-preview" sandbox="" title="Signature preview"></iframe>
+    </div>
+
+    <h2 id="cleanup">Mailbox cleanup</h2>
+    <div class="card">
+      <div class="hint">Free space in your mailbox: delete mail older than 3, 6 or 12 months, large mail, notifications and newsletters, mail unread for long, or the mail of one sender; choose folders, dates, sizes; see everything before it goes. Pinned and flagged mail is left alone. Also in the ⚡ menu and Tools → Clean up mailbox.</div>
+      <div class="actions"><button id="open-cleanup">🧹 Clean up mailbox…</button></div>
+    </div>
+
+    <h2 id="reply">Reply, forward and pinned mail</h2>
+    <div class="card">
+      <label class="toggle"><input type="checkbox" id="replyHeader"> Outlook header on reply/forward (From, Sent, To, Cc, Subject)</label>
+      <label class="toggle"><input type="checkbox" id="removeQuoteBar"> Remove the vertical quote bar on replies</label>
+      <label class="toggle"><input type="checkbox" id="pinnedOnTop"> Sort the Inbox by “📌 Pinned first” automatically: pinned conversations on top, newest first, threads stay grouped. (Any folder can use it via View → Sort by.)</label>
+      <label class="toggle"><input type="checkbox" id="unreadHighlight"> Highlight unread mail as in Outlook (cards view): a blue bar on the left, light blue card, bold sender, blue bold subject and time, in place of Thunderbird's dot</label>
+      <label class="toggle"><input type="checkbox" id="oneCardPerConversation"> One card per conversation, as in Outlook (cards view): threads stay closed, the reading pane shows the whole conversation</label>
+      <label class="toggle"><input type="checkbox" id="pinnedSection"> Pinned mail in its own section at the top of the list (“📌 Pinned”, then “Other mail”), as in Outlook (cards view, with pinned mail kept at the top)</label>
+      <label class="toggle"><input type="checkbox" id="dateSections"> Group the rest of the list by date, as in Outlook: Today, Yesterday, This week (the last 7 days), Older (cards view, with pinned mail kept at the top)</label>
+      <label class="toggle"><input type="checkbox" id="newestInCard"> A conversation's card shows who sent its newest mail and when, as in Outlook (cards view)</label>
+      <label class="toggle"><input type="checkbox" id="pinButton"> Show a pin button instead of the star, in the cards view and in the Conversations reading pane (click to pin or unpin)</label>
+      <label class="toggle"><input type="checkbox" id="pinSync"> Sync pins with Microsoft 365 (Microsoft Graph accounts): pins show on all your devices and in Outlook</label>
+      <div class="hint">Outlook Mode sets Thunderbird up once on each device: HTML compose (for @mention links), reply above the quote, and the Cards View (for the pin button). If you changed these back, this button sets them again.</div>
+      <div class="actions">
+        <button id="apply-recommended">Apply recommended Thunderbird settings</button>
+        <span id="recommended-status" class="hint"></span>
+      </div>
+    </div>
+
+    <h2 id="sending">Sending</h2>
+    <div class="card">
+      <label class="toggle">Undo Send: hold messages for
+        <select id="undoSendSeconds">
+          <option value="0">off</option>
+          <option value="5">5 seconds</option>
+          <option value="10">10 seconds</option>
+          <option value="20">20 seconds</option>
+          <option value="30">30 seconds</option>
+          <option value="60">60 seconds</option>
+        </select>
+        after pressing Send
+      </label>
+      <div class="hint">A blue bar with <b>Undo</b> and <b>Send now</b> appears in the compose window. Pressing Send again also sends at once. Ctrl+Shift+Enter (Send Later) from the message body skips the countdown.</div>
+    </div>
+
+    <h2 id="scheduled-mail">Scheduled mail</h2>
+    <div class="card">
+      <div class="hint">Schedule from the <b>Send later</b> button in the compose window. Scheduled messages wait in Drafts. Thunderbird must be running at the send time; overdue messages are sent at the next start.</div>
+      <table>
+        <thead><tr><th>Send at</th><th>Subject</th><th>To</th><th>Status</th><th class="narrow"></th></tr></thead>
+        <tbody id="scheduled"></tbody>
+      </table>
+    </div>
+
+    <h2 id="mentions">@Mentions</h2>
+    <div class="card">
+      <label class="toggle"><input type="checkbox" id="mentionTagging"> Tag incoming mail that @mentions me with “@ Mentioned”</label>
+      <div class="hint">Type @name in the message body to mention a contact (they are added to To). Mail where someone mentions you, from Outlook or from this add-on, gets the blue “@ Mentioned” tag. Show only those with Alt+Shift+M or the Quick Steps button.</div>
+      <div class="actions">
+        <button id="scan">Tag mentions in the last 30 days</button>
+        <span id="scan-status" class="hint"></span>
+      </div>
+    </div>
+
+    <h2 id="quick-steps">Quick Steps</h2>
+    <div class="card">
+      <div class="hint">Run from the ⚡ Quick Steps toolbar button, right-click on messages, or Ctrl+Shift+1…5 for the first five steps. Order of actions: mark read → pin → reply/forward → move/archive/delete.</div>
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 24%">Name</th>
+            <th class="narrow">Mark read</th>
+            <th class="narrow">Pin</th>
+            <th style="width: 15%">Reply / forward</th>
+            <th style="width: 18%">Forward to</th>
+            <th style="width: 13%">Then</th>
+            <th style="width: 22%">Folder</th>
+            <th class="narrow"></th>
+          </tr>
+        </thead>
+        <tbody id="steps"></tbody>
+      </table>
+      <div class="actions">
+        <button id="add">+ Add step</button>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button id="save" class="primary">Save</button>
+      <span id="saved"></span>
+    </div>
+
+    <h2 id="shortcuts">Keyboard shortcuts</h2>
+    <div class="card">
+      <table>
+        <thead><tr><th>Action</th><th>Outlook</th><th>Thunderbird</th></tr></thead>
+        <tbody id="shortcuts"></tbody>
+      </table>
+      <div class="hint" style="margin-top: 8px">Thunderbird's own shortcuts always take priority over add-on shortcuts, so Outlook keys that Thunderbird already uses (Ctrl+F, Ctrl+Q, Ctrl+U, Ctrl+E, Ctrl+Shift+M) cannot be taken over; the closest free key is used instead.</div>
+      <div class="actions"><button id="shortcut-settings">Change shortcuts…</button></div>
+    </div>
+
+    <h2 id="diagnostics">Diagnostics</h2>
+    <div class="card">
+      <pre id="diag">Loading…</pre>
+      <div class="actions">
+        <button id="diag-refresh">Refresh</button>
+        <button id="reload-contacts">Reload contacts</button>
+        <button id="pin-sync-run">Sync pins now</button>
+      </div>
+      <div class="actions">
+        <button id="pin-check-run">Check pin on server for the selected mail</button>
+      </div>
+      <pre id="pin-check" class="hint"></pre>
+    </div>
+  </main>
+  <script src="options.js"></script>
+</body>
+</html>

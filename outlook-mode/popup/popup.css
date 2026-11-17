@@ -1,0 +1,149 @@
+body {
+  margin: 0;
+  font: 13px/1.4 system-ui, sans-serif;
+  color: #1f1f1f;
+  background: #ffffff;
+}
+.popup {
+  padding: 8px;
+}
+.title {
+  font-weight: 600;
+  margin: 10px 4px 4px;
+  color: #444444;
+}
+.row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  padding: 7px 10px;
+  margin: 2px 0;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: #f3f3f3;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+.row:hover {
+  background: #e5f1fb;
+  border-color: #b9d7f2;
+}
+.row.primary {
+  background: #fdecea;
+}
+.row.primary:hover {
+  background: #f9d7d3;
+  border-color: #efb1aa;
+}
+.key {
+  font-size: 11px;
+  color: #777777;
+  white-space: nowrap;
+}
+.status {
+  min-height: 18px;
+  margin: 6px 4px;
+  color: #1a73c9;
+}
+.link {
+  display: block;
+  margin: 4px;
+  color: #1a73c9;
+}
+.muted {
+  color: #777777;
+}
+.history-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  border-bottom: 1px solid #eeeeee;
+  background: transparent;
+  padding: 7px 6px;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+.history-item:hover {
+  background: #e5f1fb;
+}
+.history-item.current {
+  background: #fff7e0;
+}
+.history-item .meta {
+  font-size: 11.5px;
+  color: #777777;
+}
+.history-item .subject {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dir {
+  display: inline-block;
+  min-width: 34px;
+  font-weight: 600;
+}
+.dir.out {
+  color: #1a73c9;
+}
+.dir.in {
+  color: #2e7d32;
+}
+.row:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.pair {
+  display: flex;
+  gap: 6px;
+}
+.pair .row {
+  justify-content: center;
+}
+.error {
+  color: #b3261e;
+}
+input[type="datetime-local"],
+input[type="search"] {
+  font: inherit;
+  padding: 5px 7px;
+  border: 1px solid #c8c8c8;
+  border-radius: 4px;
+  width: 100%;
+  box-sizing: border-box;
+}
+.folder-list {
+  max-height: 390px;
+  overflow-y: auto;
+  margin-top: 6px;
+  border: 1px solid #eeeeee;
+  border-radius: 4px;
+}
+.folder {
+  padding: 5px 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.folder .account {
+  color: #777777;
+  font-size: 11.5px;
+  margin-left: 6px;
+}
+.folder.active {
+  background: #e5f1fb;
+}
+.section {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #777777;
+  padding: 6px 8px 2px;
+  text-transform: uppercase;
+}

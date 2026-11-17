@@ -1,0 +1,981 @@
+/* Outlook Mode: reading pane additions for the Thunderbird Conversations view
+ * (added by reading-pane/pane.js). */
+
+/* Newest message on top. Conversations renders div#messageList > ul > li. */
+html[data-ol-newest-first] div#messageList > ul {
+  display: flex;
+  flex-direction: column-reverse;
+}
+
+/* Only the newest message, which quotes the rest; collapsed earlier ones
+ * wait behind #ol-earlier. */
+html[data-ol-latest-only]:not([data-ol-show-earlier])
+  div#messageList > ul > li.message:not(:last-child):not(:has(message-footer)) {
+  display: none !important;
+}
+
+#ol-earlier {
+  appearance: none;
+  display: block;
+  margin: 4px auto 8px;
+  padding: 3px 14px;
+  border: 1px solid var(--border-color, light-dark(#d4d4d8, #3f3f46));
+  border-radius: 12px;
+  background: transparent;
+  color: light-dark(#0f6cbd, #479ef5);
+  font-family: sans-serif;
+  font-size: 1.2rem;
+  cursor: pointer;
+}
+
+#ol-earlier:hover {
+  background: light-dark(#f0f0f0, rgb(60, 60, 66));
+}
+
+/* A message's attachments above its text, as in Outlook. Conversations
+ * renders div.messageBody as: tag lists (inline), the message frame's box,
+ * then conv-attachment-list; React keeps that order in the page, so only the
+ * order on screen changes: tags on their line, attachments, then the text. */
+html[data-ol-attachments-top] li.message .messageBody {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+
+html[data-ol-attachments-top] li.message .messageBody > :not(ul) {
+  flex: 0 0 100%;
+  min-width: 0;
+}
+
+html[data-ol-attachments-top] li.message .messageBody > conv-attachment-list {
+  order: 1;
+  margin-bottom: 6px;
+}
+
+html[data-ol-attachments-top] li.message .messageBody > :not(ul, conv-attachment-list) {
+  order: 2;
+}
+
+/* A message whose text is still loading (a Microsoft Graph download can
+ * take a while), or that could not be loaded: said where its text goes.
+ * Conversations puts the message frame in div.iframewrapN. */
+li.message:is([data-ol-load="loading"], [data-ol-load="failed"]) .messageBody > [class^="iframewrap"]::before {
+  display: block;
+  padding: 8px 0;
+  font-family: sans-serif;
+  font-size: 1.2rem;
+}
+
+li.message[data-ol-load="loading"] .messageBody > [class^="iframewrap"]::before {
+  content: "Loading this message\2026";
+  color: light-dark(#616161, #adadad);
+  font-style: italic;
+}
+
+li.message[data-ol-load="failed"] .messageBody > [class^="iframewrap"]::before {
+  content: "\26A0  This message could not be loaded from the server. Click here to try again.";
+  color: light-dark(#0f6cbd, #479ef5);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* White reading pane like Outlook, or dark while Conversations' ◐ (dark
+ * message reader) is on, whatever Thunderbird's theme is. Conversations'
+ * colours are light-dark() pairs, so the colour scheme turns the whole page
+ * (headers, cards, the composer's frame). */
+html[data-ol-light] {
+  color-scheme: light;
+}
+
+html[data-ol-dark] {
+  color-scheme: dark;
+}
+
+html:is([data-ol-light], [data-ol-dark]) body {
+  background-color: var(--application-background-color);
+  color: var(--application-foreground-color);
+}
+
+/* Outlook-style header: the "to A, B, and C" text of an expanded message
+ * makes way for pane.js's To / Cc lines. The text node "to " has no element,
+ * so the box's own text is sized 0 and its elements get the size back. */
+html[data-ol-outlook-header] li.message:has(.ol-recipients) .messageHeader :is(contact-label.to, span.to) {
+  display: none;
+}
+
+html[data-ol-outlook-header] li.message:has(.ol-recipients) .messageHeader .shrink-box {
+  font-size: 0;
+}
+
+html[data-ol-outlook-header] li.message:has(.ol-recipients) .messageHeader .shrink-box > * {
+  font-size: 1.2rem;
+}
+
+html[data-ol-outlook-header] li.message:has(.ol-recipients) .messageHeader contact-label.author {
+  margin-inline-start: 8px; /* the space before it went with the hidden text */
+  font-size: 1.35rem;
+  font-weight: 600;
+}
+
+html[data-ol-outlook-header] li.message:has(.ol-recipients) message-header-options span[slot="date"] {
+  display: none; /* the full date is on the To line */
+}
+
+.ol-recipients {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: -6px 10px 6px;
+  padding: 0 0 6px 42px; /* under the sender's name, past the avatar */
+  border-bottom: 1px solid var(--border-color, #e1e1e1);
+  color: var(--dull-foreground-color, #616161);
+  font-size: 1.2rem;
+  line-height: 1.6;
+  cursor: default;
+}
+
+.ol-rcpt-lines {
+  flex: 1;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.ol-recipients.ol-open .ol-rcpt-lines {
+  cursor: text;
+  user-select: text;
+}
+
+.ol-rcpt-line {
+  display: flex;
+  gap: 6px;
+}
+
+.ol-rcpt-label {
+  flex: 0 0 2.2em;
+  font-weight: 600;
+}
+
+.ol-rcpt-list {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--application-foreground-color, #000000);
+}
+
+.ol-rcpt-email {
+  display: none;
+  color: var(--dull-foreground-color, #616161);
+}
+
+.ol-recipients.ol-open .ol-rcpt-list {
+  white-space: normal;
+}
+
+.ol-recipients.ol-open .ol-rcpt-email {
+  display: inline;
+}
+
+.ol-rcpt-side {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.ol-rcpt-toggle {
+  appearance: none;
+  padding: 0 6px;
+  border: 1px solid var(--border-color, #d4d4d8);
+  border-radius: 10px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.9em;
+  cursor: pointer;
+}
+
+.ol-rcpt-toggle:hover {
+  background: light-dark(#f0f0f0, rgb(60, 60, 66));
+}
+
+/* Conversations' star is a pin button (pane.js sets data-ol-pinned). */
+html[data-ol-pin-button] .messageHeader button.star {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  vertical-align: middle;
+  background: url("chrome://messenger/skin/icons/new/compact/pin.svg") center / 14px no-repeat !important;
+  -moz-context-properties: fill, stroke;
+  fill: transparent;
+  stroke: color-mix(in srgb, currentColor 55%, transparent);
+  color: var(--email-address-dull-color);
+  cursor: pointer;
+}
+
+html[data-ol-pin-button] .messageHeader button.star svg-icon {
+  display: none;
+}
+
+html[data-ol-pin-button] .messageHeader button.star[data-ol-pinned] {
+  fill: #c0392b;
+  stroke: #c0392b;
+}
+
+/* The inline composer takes the place of Conversations' quick reply. */
+html[data-ol-inline-reply] .quickReply {
+  display: none !important;
+}
+
+.ol-hidden {
+  display: none !important;
+}
+
+/* ---- Composer ---------------------------------------------------- */
+
+.ol-composer,
+html.ol-dock-page {
+  --ol-accent: light-dark(#0f6cbd, #479ef5);
+  --ol-accent-text: light-dark(#ffffff, #0b1a2a);
+  --ol-muted: light-dark(#616161, #adadad);
+  --ol-line: var(--border-color, light-dark(#d4d4d8, #3f3f46));
+  --ol-surface: light-dark(#ffffff, rgb(43, 43, 48));
+  --ol-hover: light-dark(#f0f0f0, rgb(60, 60, 66));
+  --ol-error: light-dark(#b3261e, #ff8a80);
+}
+
+.ol-composer {
+  position: relative;
+  margin: 10px 10px 8px;
+  padding: 10px 12px 12px;
+  border: 1px solid var(--ol-line);
+  border-inline-start: 3px solid var(--ol-accent);
+  border-radius: 6px;
+  background: var(--ol-surface);
+  color: CanvasText;
+  font-family: sans-serif;
+  font-size: 1.3rem;
+  line-height: 1.5;
+}
+
+.ol-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.ol-kind {
+  font-weight: 600;
+  color: var(--ol-accent);
+}
+
+.ol-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 0;
+  border-bottom: 1px solid var(--ol-line);
+}
+
+.ol-label {
+  flex: 0 0 4.5em;
+  color: var(--ol-muted);
+}
+
+.ol-input {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 2px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+
+select.ol-input {
+  padding: 3px 0;
+}
+
+/* To / Cc / Bcc: wrap and grow up to about five lines, then scroll. */
+textarea.ol-address {
+  display: block;
+  box-sizing: border-box;
+  max-height: calc(5lh + 8px);
+  overflow-y: auto;
+  resize: none;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.ol-row:has(> textarea.ol-address) {
+  align-items: flex-start;
+}
+
+.ol-row:has(> textarea.ol-address) > .ol-label,
+.ol-row:has(> textarea.ol-address) > .ol-reveal {
+  padding-top: 4px;
+}
+
+.ol-row:has(> textarea.ol-address) > .ol-reveal .ol-link {
+  padding-block: 0;
+}
+
+.ol-input:focus {
+  outline: none;
+}
+
+.ol-row:focus-within {
+  border-bottom-color: var(--ol-accent);
+}
+
+.ol-reveal {
+  display: flex;
+  gap: 2px;
+}
+
+.ol-link {
+  appearance: none;
+  padding: 2px 6px;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  color: var(--ol-accent);
+  font: inherit;
+  cursor: pointer;
+}
+
+.ol-link:hover {
+  background: var(--ol-hover);
+}
+
+/* ---- Toolbar and editor ------------------------------------------ */
+
+.ol-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+  row-gap: 4px;
+  margin-top: 8px;
+}
+
+.ol-tool {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  height: 26px;
+  padding: 0 5px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background-color: transparent;
+  color: inherit;
+  font: inherit;
+  line-height: 1;
+  cursor: pointer;
+}
+
+/* Thunderbird's own icons (they take their colour from the text). */
+.ol-tool.ol-icon {
+  background-image: var(--ol-icon);
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 16px;
+  -moz-context-properties: fill;
+  fill: currentColor;
+}
+
+.ol-tool:hover {
+  background-color: var(--ol-hover);
+  border-color: var(--ol-line);
+}
+
+.ol-tool[aria-pressed="true"] {
+  background-color: color-mix(in srgb, var(--ol-accent) 18%, transparent);
+  border-color: color-mix(in srgb, var(--ol-accent) 45%, transparent);
+}
+
+.ol-tool:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.ol-tool-undo,
+.ol-tool-redo {
+  font-size: 1.25em;
+}
+
+.ol-tool-grow,
+.ol-tool-shrink {
+  font-weight: 600;
+}
+
+.ol-tool-strikeThrough {
+  text-decoration: line-through;
+}
+
+.ol-tool-subscript,
+.ol-tool-superscript {
+  font-size: 0.95em;
+}
+
+/* Font colour / highlight: the colour a click applies, under the glyph. */
+.ol-tool-color,
+.ol-tool-highlight {
+  font-weight: 600;
+  box-shadow: inset 0 -4px 0 -1px var(--ol-swatch, currentColor);
+}
+
+.ol-split {
+  display: inline-flex;
+}
+
+.ol-split > .ol-tool:first-child {
+  border-start-end-radius: 0;
+  border-end-end-radius: 0;
+}
+
+.ol-tool.ol-menu {
+  min-width: 14px;
+  padding: 0 2px;
+  font-size: 0.75em;
+}
+
+.ol-split > .ol-menu {
+  border-start-start-radius: 0;
+  border-end-start-radius: 0;
+}
+
+.ol-tool-select {
+  height: 26px;
+  padding: 0 4px;
+  border: 1px solid var(--ol-line);
+  border-radius: 4px;
+  background: var(--ol-surface);
+  color: inherit;
+  font: inherit;
+  font-size: 0.92em;
+}
+
+.ol-tool-font {
+  width: 9.5em;
+}
+
+.ol-tool-size {
+  width: 4.6em;
+}
+
+.ol-tool-style {
+  width: 7.5em;
+}
+
+.ol-sep {
+  width: 1px;
+  height: 1.3em;
+  margin: 0 4px;
+  background: var(--ol-line);
+}
+
+/* Colour, table and emoji menus. */
+.ol-popup {
+  position: absolute;
+  z-index: 15;
+  padding: 8px;
+  border: 1px solid var(--ol-line);
+  border-radius: 6px;
+  background: var(--ol-surface);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+}
+
+.ol-popup-label {
+  margin-bottom: 6px;
+  color: var(--ol-muted);
+  font-size: 0.92em;
+}
+
+.ol-swatches {
+  display: grid;
+  grid-template-columns: repeat(10, 18px);
+  gap: 3px;
+}
+
+.ol-swatch {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 1px solid rgba(128, 128, 128, 0.5);
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+.ol-swatch:hover {
+  outline: 2px solid var(--ol-accent);
+}
+
+.ol-swatch-none {
+  grid-column: 1 / -1;
+  margin-top: 4px;
+  padding: 3px 6px;
+  border: 1px solid var(--ol-line);
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.ol-swatch-none:hover {
+  background: var(--ol-hover);
+}
+
+.ol-table-grid {
+  display: grid;
+  gap: 2px;
+}
+
+.ol-table-cell {
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 1px solid var(--ol-line);
+  background: var(--ol-surface);
+  cursor: pointer;
+}
+
+.ol-table-cell.ol-active {
+  border-color: var(--ol-accent);
+  background: color-mix(in srgb, var(--ol-accent) 35%, transparent);
+}
+
+.ol-tool-signatureMenu.ol-menu {
+  padding: 0 6px;
+  font-size: 0.92em;
+}
+
+.ol-menu-item {
+  display: block;
+  width: 100%;
+  padding: 5px 10px;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.ol-menu-item:hover {
+  background: var(--ol-hover);
+}
+
+.ol-emoji-grid {
+  display: grid;
+  grid-template-columns: repeat(10, 28px);
+  gap: 2px;
+}
+
+.ol-emoji {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  font-size: 1.3em;
+  cursor: pointer;
+}
+
+.ol-emoji:hover {
+  background: var(--ol-hover);
+}
+
+/* The message itself looks as the recipients will see it, in light and in
+ * dark theme alike: white paper, black text (as in Outlook and Thunderbird's
+ * compose window), so a signature with a white background blends in. */
+.ol-editor {
+  min-height: 9em;
+  max-height: 60vh;
+  overflow-y: auto;
+  margin-top: 6px;
+  padding: 8px;
+  border: 1px solid var(--ol-line);
+  border-radius: 4px;
+  background: #ffffff;
+  color: #000000;
+  color-scheme: light;
+  caret-color: #000000;
+  cursor: text;
+}
+
+.ol-editor:focus {
+  outline: none;
+  border-color: var(--ol-accent);
+}
+
+.ol-editor[contenteditable="false"] {
+  opacity: 0.6;
+}
+
+/* conversation.css resets every margin and padding. */
+.ol-editor ul,
+.ol-editor ol {
+  margin: 0.3em 0;
+  padding-inline-start: 2.2em;
+}
+
+.ol-editor blockquote {
+  margin: 0 0 0 2.5em;
+}
+
+/* Styles (conversation.css resets margins and paddings). */
+.ol-editor :is(h1, h2, h3) {
+  margin: 0.3em 0;
+}
+
+.ol-editor pre {
+  padding: 4px 6px;
+  background: #f3f3f3;
+  font-family: monospace;
+  white-space: pre-wrap;
+}
+
+.ol-editor hr {
+  margin: 6px 0;
+}
+
+.ol-editor p {
+  margin: 0;
+}
+
+.ol-editor img {
+  max-width: 100%;
+}
+
+.ol-editor a {
+  color: #0563c1; /* Outlook's link blue */
+}
+
+.ol-editor .moz-signature {
+  margin-top: 0.5em;
+  color: inherit;
+}
+
+/* ---- Attachments, original, actions ------------------------------ */
+
+.ol-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.ol-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 4px 1px 8px;
+  border: 1px solid var(--ol-line);
+  border-radius: 12px;
+}
+
+.ol-remove {
+  appearance: none;
+  border: none;
+  background: none;
+  color: var(--ol-muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+.ol-original {
+  margin-top: 8px;
+  color: var(--ol-muted);
+  font-size: 0.92em;
+}
+
+.ol-original summary {
+  cursor: pointer;
+}
+
+.ol-original > div {
+  padding-inline-start: 1.2em;
+}
+
+.ol-actions,
+.ol-countdown {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.ol-actions button,
+.ol-countdown button {
+  appearance: none;
+  padding: 4px 14px;
+  border: 1px solid var(--ol-line);
+  border-radius: 4px;
+  background: var(--ol-surface);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.ol-actions button:hover,
+.ol-countdown button:hover {
+  background: var(--ol-hover);
+}
+
+.ol-actions button.ol-primary {
+  border-color: var(--ol-accent);
+  background: var(--ol-accent);
+  color: var(--ol-accent-text);
+  font-weight: 600;
+}
+
+.ol-actions button:disabled,
+.ol-countdown button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.ol-countdown {
+  padding: 6px 10px;
+  border-radius: 4px;
+  background: var(--ol-accent);
+  color: var(--ol-accent-text);
+}
+
+.ol-countdown span {
+  flex: 1;
+  font-weight: 600;
+}
+
+.ol-countdown button {
+  border-color: var(--ol-accent-text);
+  background: transparent;
+}
+
+.ol-status {
+  color: var(--ol-muted);
+}
+
+.ol-status.ol-error {
+  color: var(--ol-error);
+}
+
+/* ---- Address suggestions ----------------------------------------- */
+
+.ol-suggest {
+  position: absolute;
+  z-index: 10;
+  max-height: 16em;
+  overflow-y: auto;
+  border: 1px solid var(--ol-line);
+  border-radius: 4px;
+  background: var(--ol-surface);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+}
+
+.ol-suggest-item {
+  padding: 3px 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.ol-mention {
+  min-width: 260px;
+  max-width: 440px;
+}
+
+.ol-mention-item {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.35;
+}
+
+.ol-mention-email {
+  color: var(--ol-muted);
+  font-size: 0.88em;
+}
+
+.ol-suggest-item.ol-active .ol-mention-email {
+  color: inherit;
+}
+
+.ol-suggest-item.ol-active,
+.ol-suggest-item:hover {
+  background: var(--ol-accent);
+  color: var(--ol-accent-text);
+}
+
+/* ---- Toast ------------------------------------------------------- */
+
+#ol-toast {
+  position: fixed;
+  inset-block-end: 16px;
+  inset-inline-start: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  max-width: 80%;
+  padding: 6px 14px;
+  border-radius: 4px;
+  background: light-dark(#323130, #f3f2f1);
+  color: light-dark(#ffffff, #201f1e);
+  font-family: sans-serif;
+  font-size: 1.3rem;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+}
+
+#ol-toast.ol-visible {
+  opacity: 1;
+}
+
+#ol-toast.ol-error {
+  background: light-dark(#b3261e, #ff8a80);
+  color: light-dark(#ffffff, #201f1e);
+}
+
+/* ---- Compose dock (dock.html) ------------------------------------ */
+
+html.ol-dock-page {
+  height: 100%;
+  font-size: 62.5%; /* rem as in Conversations' page */
+  color-scheme: light dark;
+}
+
+html.ol-dock-page body {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: var(--ol-surface);
+  color: CanvasText;
+  font-family: sans-serif;
+  font-size: 1.3rem;
+}
+
+#ol-dock-grip {
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  z-index: 30;
+  height: 5px;
+  cursor: ns-resize;
+}
+
+#ol-dock-bar {
+  display: flex;
+  flex: 0 0 34px;
+  align-items: center;
+  gap: 4px;
+  box-sizing: border-box;
+  padding: 0 6px;
+  border-bottom: 1px solid var(--ol-line);
+  background: light-dark(#f3f3f3, rgb(35, 35, 40));
+  user-select: none;
+}
+
+.ol-dock-tabs {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+.ol-dock-tab {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 6em;
+  max-width: 18em;
+  padding: 2px 2px 2px 10px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.ol-dock-tab:hover {
+  background: var(--ol-hover);
+}
+
+.ol-dock-tab.ol-active {
+  border-color: var(--ol-line);
+  background: var(--ol-surface);
+  box-shadow: inset 0 -2px 0 var(--ol-accent);
+  font-weight: 600;
+}
+
+.ol-dock-title {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ol-dock-notice {
+  padding-inline-start: 8px;
+  color: var(--ol-accent);
+  font-weight: 600;
+}
+
+.ol-dock-close,
+.ol-dock-button {
+  appearance: none;
+  min-width: 24px;
+  padding: 1px 6px;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.ol-dock-close {
+  color: var(--ol-muted);
+}
+
+.ol-dock-close:hover,
+.ol-dock-button:hover {
+  background: var(--ol-hover);
+  color: inherit;
+}
+
+#ol-dock-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+html.ol-dock-page .ol-composer {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  min-height: 100%;
+  margin: 0;
+  border: none;
+  border-radius: 0;
+}
+
+html.ol-dock-page .ol-head {
+  display: none; /* the tab names the message */
+}
+
+html.ol-dock-page .ol-editor {
+  flex: 1 0 8em;
+  max-height: none;
+}

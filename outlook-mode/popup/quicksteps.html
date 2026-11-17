@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="popup" style="width: 300px">
+    <div class="pair">
+      <button id="open-settings" class="row">⚙ Settings</button>
+      <button id="open-signature" class="row">✍ Signature</button>
+    </div>
+    <button id="open-cleanup" class="row">🧹 Clean up mailbox</button>
+    <button id="pin" class="row primary">📌 Pin / unpin selected mail <span class="key">Alt+Shift+P</span></button>
+    <div class="title">⚡ Quick Steps</div>
+    <div id="steps"></div>
+    <div class="title">@ Mentions</div>
+    <div class="pair">
+      <button id="mentions-show" class="row">Show @mentions <span class="key">Alt+Shift+M</span></button>
+      <button id="mentions-clear" class="row">Show all</button>
+    </div>
+    <div class="title">🕒 Scheduled mail</div>
+    <div id="scheduled" class="muted" style="margin: 0 4px">…</div>
+    <div id="status" class="status"></div>
+    <a id="manage" href="#" class="link">Settings and scheduled mail…</a>
+  </div>
+  <script src="quicksteps.js"></script>
+</body>
+</html>

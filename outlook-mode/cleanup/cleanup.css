@@ -1,0 +1,391 @@
+:root {
+  color-scheme: light dark;
+  --bg: light-dark(#fafafa, #1c1b22);
+  --card: light-dark(#ffffff, #2b2a33);
+  --line: light-dark(#e3e3e3, #3f3e47);
+  --text: light-dark(#1f1f1f, #ececf0);
+  --muted: light-dark(#666666, #a8a8b3);
+  --accent: light-dark(#1a73c9, #5aa4ec);
+  --danger: light-dark(#b3261e, #ff8a80);
+  --hover: light-dark(#f0f4f9, #34333d);
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.5 system-ui, sans-serif;
+}
+
+main {
+  max-width: 1100px;
+  margin: 24px auto;
+  padding: 0 20px 48px;
+}
+
+h1 {
+  margin: 0 0 8px;
+  font-size: 22px;
+}
+
+h2 {
+  margin: 26px 0 8px;
+  font-size: 16px;
+}
+
+.hint {
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.card {
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--card);
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+button,
+select,
+input {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  padding: 5px 14px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--card);
+  cursor: pointer;
+}
+
+button:hover {
+  background: var(--hover);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+button.primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #ffffff;
+}
+
+button.danger {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+button.link {
+  padding: 0 4px;
+  border: none;
+  background: none;
+  color: var(--accent);
+  font-size: 12.5px;
+}
+
+select,
+input[type="text"],
+input[type="date"] {
+  padding: 3px 6px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--card);
+}
+
+/* Usage */
+
+#usage-text {
+  margin-bottom: 6px;
+  font-size: 15px;
+}
+
+.meter {
+  height: 10px;
+  margin-bottom: 6px;
+  overflow: hidden;
+  border-radius: 5px;
+  background: var(--line);
+}
+
+#usage-fill {
+  width: 0;
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.3s;
+}
+
+#act-progress {
+  margin: 10px 0 0;
+}
+
+#act-progress-fill {
+  width: 0;
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.2s;
+}
+
+#usage-fill.full {
+  background: var(--danger);
+}
+
+.limit {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  margin-bottom: 6px;
+  font-size: 13px;
+}
+
+.limit[hidden] {
+  display: none;
+}
+
+#limit {
+  width: 5em;
+  padding: 2px 6px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--card);
+}
+
+/* Quick clean cards */
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 10px;
+}
+
+.preset {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--card);
+  text-align: start;
+}
+
+.preset.active {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.preset .title {
+  font-weight: 600;
+}
+
+.preset .meta {
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.preset .chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.preset .chip {
+  padding: 1px 9px;
+  border-radius: 12px;
+  font-size: 12.5px;
+}
+
+.preset .chip.active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+/* Tables */
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  padding: 5px 6px;
+  border-bottom: 1px solid var(--line);
+  text-align: start;
+  vertical-align: middle;
+}
+
+th {
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+td.num,
+th.num {
+  text-align: end;
+  white-space: nowrap;
+}
+
+td.nowrap {
+  white-space: nowrap;
+}
+
+td.cut {
+  max-width: 380px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+tr.month td {
+  padding-top: 10px;
+  background: var(--hover);
+}
+
+tr.month .month-name {
+  font-weight: 600;
+}
+
+tr.off td {
+  opacity: 0.45;
+}
+
+/* Filters */
+
+.filters {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) 2fr;
+  gap: 16px;
+}
+
+.label {
+  margin-bottom: 4px;
+  font-weight: 600;
+  font-size: 12.5px;
+}
+
+#folder-list {
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+#folder-list label {
+  display: block;
+  white-space: nowrap;
+}
+
+.filter-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 16px;
+  align-content: start;
+}
+
+.filter-grid > label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12.5px;
+}
+
+.check {
+  display: block;
+  font-size: 13px;
+}
+
+.filter-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* Results */
+
+.results {
+  margin-top: 10px;
+}
+
+.results-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+#summary {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+/* Steps of "Review and clean" */
+
+.step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 14px 0 6px;
+  font-weight: 600;
+}
+
+.step .num {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #ffffff;
+  font-size: 12.5px;
+}
+
+/* Kept in view at the bottom while the list scrolls, so it is always clear
+   that the buttons act on the ticked mails of the list. */
+.actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  margin-top: 10px;
+  padding: 10px 16px 12px;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: var(--card);
+  box-shadow: 0 -4px 12px rgb(0 0 0 / 0.15);
+}
+
+.actions .step {
+  margin: 0 0 8px;
+}
+
+.actions .buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+#status:not(:empty) {
+  margin-top: 8px;
+}
+
+#status.error {
+  color: var(--danger);
+}
+
+.card.people {
+  margin-top: 10px;
+}

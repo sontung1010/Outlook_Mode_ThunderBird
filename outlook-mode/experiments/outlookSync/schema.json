@@ -1,0 +1,49 @@
+[
+  {
+    "namespace": "outlookSync",
+    "description": "Reads and writes the Thunderbird settings that the add-on syncs between devices: global preferences, account and identity settings, and message filters.",
+    "functions": [
+      {
+        "name": "readSettings",
+        "type": "function",
+        "async": true,
+        "description": "Returns { values, servers, identities, accounts }: the synced settings that are set on this device, the account ids (type:user@host) and identity addresses present here, and a map from account key to account id.",
+        "parameters": []
+      },
+      {
+        "name": "supportedKeys",
+        "type": "function",
+        "async": true,
+        "description": "The keys from the list that this device can sync (known setting, account or identity present).",
+        "parameters": [{ "name": "keys", "type": "array", "items": { "type": "string" } }]
+      },
+      {
+        "name": "applySettings",
+        "type": "function",
+        "async": true,
+        "description": "Writes the given values (null clears a setting). Returns { failed: { key: reason } }.",
+        "parameters": [{ "name": "changes", "type": "object", "additionalProperties": { "type": "any" } }]
+      },
+      {
+        "name": "applyRecommended",
+        "type": "function",
+        "async": true,
+        "description": "Turns on HTML compose and the reply above the quote for every identity, and the Cards View. Returns { changed: [{ what (html, replyOnTop, cardsView), identity }] }.",
+        "parameters": []
+      },
+      {
+        "name": "collectContacts",
+        "type": "function",
+        "async": true,
+        "description": "Adds the people you wrote to or replied to (in mail dated since options.since, in seconds; 0 for all mail) to Collected Addresses, skipping addresses already in an address book, and merges Collected Addresses contacts that share an address. Returns { scanned, folders, people, added, merged, book }.",
+        "parameters": [
+          {
+            "name": "options",
+            "type": "object",
+            "properties": { "since": { "type": "integer", "optional": true } }
+          }
+        ]
+      }
+    ]
+  }
+]

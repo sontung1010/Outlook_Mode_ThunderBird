@@ -1,0 +1,57 @@
+[
+  {
+    "namespace": "outlookServer",
+    "description": "Microsoft's server failing, for Microsoft Graph accounts: reports Thunderbird's 'responded with an error' notices, holds them back while the add-on says the server is failing, and runs the folder list sync of an account.",
+    "functions": [
+      {
+        "name": "start",
+        "type": "function",
+        "async": true,
+        "description": "Starts watching Thunderbird's notices.",
+        "parameters": []
+      },
+      {
+        "name": "setQuiet",
+        "type": "function",
+        "async": true,
+        "description": "Holds back (true) or shows again (false) Thunderbird's notices for an account.",
+        "parameters": [
+          { "name": "accountId", "type": "string" },
+          { "name": "quiet", "type": "boolean" }
+        ]
+      },
+      {
+        "name": "syncFolderList",
+        "type": "function",
+        "async": true,
+        "description": "Runs Thunderbird's folder list sync of a Graph account. Returns { ok, reason?, network? }.",
+        "parameters": [{ "name": "accountId", "type": "string" }]
+      },
+      {
+        "name": "getNewMail",
+        "type": "function",
+        "async": true,
+        "description": "Gets the new mail of a Graph account (folder list and folders). Returns false when it cannot start.",
+        "parameters": [{ "name": "accountId", "type": "string" }]
+      },
+      {
+        "name": "status",
+        "type": "function",
+        "async": true,
+        "description": "Returns { watching, quiet, seen, held, lastError }.",
+        "parameters": []
+      }
+    ],
+    "events": [
+      {
+        "name": "onServerError",
+        "type": "function",
+        "description": "Thunderbird showed (or would show) 'Server ... responded with an error.' for a Graph account.",
+        "parameters": [
+          { "name": "accountId", "type": "string" },
+          { "name": "message", "type": "string" }
+        ]
+      }
+    ]
+  }
+]

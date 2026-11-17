@@ -1,0 +1,86 @@
+[
+  {
+    "namespace": "outlookPane",
+    "description": "Outlook-style reading pane for the Thunderbird Conversations view: newest message on top (optionally alone), and replies and forwards written inline in the pane; new messages in a dock at the bottom of the main window.",
+    "functions": [
+      {
+        "name": "configure",
+        "type": "function",
+        "async": true,
+        "description": "Sets { enabled, newestFirst, expandAll, foldQuotes, attachmentsTop, latestOnly, inlineReply, inlineNew, pinButton, pinKeyword, undoSendSeconds, replyHeader, removeQuoteBar } and applies it to open conversation views. Returns the same object as status().",
+        "parameters": [{ "name": "config", "type": "object", "additionalProperties": { "type": "any" } }]
+      },
+      {
+        "name": "conversationsState",
+        "type": "function",
+        "async": true,
+        "description": "Whether Thunderbird Conversations is installed and enabled: { installed, enabled, version, appVersion }. Read only: the add-on never installs or enables it.",
+        "parameters": []
+      },
+      {
+        "name": "sanitizeHtml",
+        "type": "function",
+        "async": true,
+        "description": "The given HTML fragment cleaned by Thunderbird's sanitizer (no scripts, event handlers, javascript: URLs, frames, objects or forms).",
+        "parameters": [{ "name": "html", "type": "string" }]
+      },
+      {
+        "name": "setSignature",
+        "type": "function",
+        "async": true,
+        "description": "Makes the given HTML (pictures as data: URLs) the HTML signature of the identity, cleaned like an imported file. Returns { email, images, missing, size }.",
+        "parameters": [
+          { "name": "identityId", "type": "string" },
+          { "name": "html", "type": "string" }
+        ]
+      },
+      {
+        "name": "getSignature",
+        "type": "function",
+        "async": true,
+        "description": "The identity's signature as the reading pane uses it (sanitized HTML, pictures as data: URLs); empty if it has none.",
+        "parameters": [{ "name": "identityId", "type": "string" }]
+      },
+      {
+        "name": "importSignature",
+        "type": "function",
+        "async": true,
+        "description": "Asks for an Outlook signature file (.htm) and makes it the HTML signature of the identity, with its images inside. Returns { email, images, missing, size } or { cancelled: true }.",
+        "parameters": [{ "name": "identityId", "type": "string" }]
+      },
+      {
+        "name": "status",
+        "type": "function",
+        "async": true,
+        "description": "Returns { conversations, conversationsVersion, panes, routedWindows, drafts, pendingSends, newMessages, dock, composeRoutedWindows, lastError }.",
+        "parameters": []
+      }
+    ],
+    "events": [
+      {
+        "name": "onPopOut",
+        "type": "function",
+        "description": "The user moved an inline reply or new message to a compose window: { messageId (null for a new message), type (new, reply, replyAll, forward), identityId, to, cc, bcc (arrays), subject, html }.",
+        "parameters": [{ "name": "details", "type": "object", "additionalProperties": { "type": "any" } }]
+      },
+      {
+        "name": "onOpenSettings",
+        "type": "function",
+        "description": "The composer asked for Outlook Mode's settings, at a section (an id in the settings page, or empty).",
+        "parameters": [{ "name": "section", "type": "string" }]
+      },
+      {
+        "name": "onPin",
+        "type": "function",
+        "description": "The pin button (Conversations' star) of a message was clicked.",
+        "parameters": [{ "name": "messageId", "type": "integer" }]
+      },
+      {
+        "name": "onSendResult",
+        "type": "function",
+        "description": "An inline reply was sent or failed: { ok, error, subject, shown } (shown: an open reading pane displayed the result).",
+        "parameters": [{ "name": "result", "type": "object", "additionalProperties": { "type": "any" } }]
+      }
+    ]
+  }
+]

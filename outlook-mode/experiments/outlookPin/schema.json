@@ -1,0 +1,144 @@
+[
+  {
+    "namespace": "outlookPin",
+    "description": "A sortable 'Pinned' column, a 'Pinned first' entry in the Sort by menus, a pin button and a refresh button in the message list, and access to Microsoft Graph accounts for pin sync.",
+    "functions": [
+      {
+        "name": "register",
+        "type": "function",
+        "async": true,
+        "description": "Registers the custom column and the Sort by menu entries.",
+        "parameters": [
+          {
+            "name": "options",
+            "type": "object",
+            "properties": {
+              "pinKeyword": { "type": "string", "description": "Tag key that marks a pinned message." },
+              "columnName": { "type": "string" },
+              "menuLabel": { "type": "string" }
+            }
+          }
+        ]
+      },
+      {
+        "name": "sortByPinned",
+        "type": "function",
+        "async": true,
+        "description": "Sorts the message list of a mail tab with pinned conversations first. Returns false if the tab has no message list.",
+        "parameters": [{ "name": "tabId", "type": "integer" }]
+      },
+      {
+        "name": "isSortedByPinned",
+        "type": "function",
+        "async": true,
+        "description": "Whether the message list of a mail tab is sorted by the Pinned column.",
+        "parameters": [{ "name": "tabId", "type": "integer" }]
+      },
+      {
+        "name": "configureMailList",
+        "type": "function",
+        "async": true,
+        "description": "Turns the message list additions on or off: the pin button in place of the cards view's star, the refresh button in the list header, the Outlook-style highlight of unread mail in the cards view, and one card per conversation (threads kept closed).",
+        "parameters": [
+          {
+            "name": "options",
+            "type": "object",
+            "properties": {
+              "pinButton": { "type": "boolean" },
+              "refreshButton": { "type": "boolean" },
+              "refreshKey": { "type": "boolean", "optional": true },
+              "unreadHighlight": { "type": "boolean" },
+              "oneCardPerConversation": { "type": "boolean" },
+              "pinnedSection": { "type": "boolean" },
+              "dateSections": { "type": "boolean" },
+              "newestInCard": { "type": "boolean" }
+            }
+          }
+        ]
+      },
+      {
+        "name": "setRefreshState",
+        "type": "function",
+        "async": true,
+        "description": "Shows the refresh button as busy or not, with a tooltip.",
+        "parameters": [
+          {
+            "name": "state",
+            "type": "object",
+            "properties": {
+              "busy": { "type": "boolean" },
+              "title": { "type": "string", "optional": true },
+              "error": { "type": "boolean", "optional": true }
+            }
+          }
+        ]
+      },
+      {
+        "name": "getNewMessages",
+        "type": "function",
+        "async": true,
+        "description": "Runs Thunderbird's Get Messages for all signed-in accounts and updates the folders shown in mail tabs. Returns false when no main window is open.",
+        "parameters": []
+      },
+      {
+        "name": "listGraphAccounts",
+        "type": "function",
+        "async": true,
+        "description": "The ids of the Microsoft Graph accounts.",
+        "parameters": []
+      },
+      {
+        "name": "getGraphToken",
+        "type": "function",
+        "async": true,
+        "description": "The OAuth access token of a Microsoft Graph account, for calls to graph.microsoft.com. Never prompts for a sign-in.",
+        "parameters": [{ "name": "accountId", "type": "string" }]
+      },
+      {
+        "name": "conversationMessageIds",
+        "type": "function",
+        "async": true,
+        "description": "The ids of the messages of the conversation (thread, in its folder) of a message, itself included.",
+        "parameters": [{ "name": "messageId", "type": "integer" }]
+      },
+      {
+        "name": "threadCountsRepaired",
+        "type": "function",
+        "async": true,
+        "description": "How many threads had a wrong count of unread mail, set right since start.",
+        "parameters": []
+      },
+      {
+        "name": "markThreadRead",
+        "type": "function",
+        "async": true,
+        "description": "Marks a conversation as read (if Thunderbird marks displayed mail as read): the selected messages of a mail tab with one row selected. Returns what happened.",
+        "parameters": [
+          { "name": "tabId", "type": "integer" },
+          { "name": "messageIds", "type": "array", "items": { "type": "integer" } }
+        ]
+      },
+      {
+        "name": "withAttachments",
+        "type": "function",
+        "async": true,
+        "description": "The ones of the given messages that have attachments, from the flag in the message database (no message is read).",
+        "parameters": [{ "name": "messageIds", "type": "array", "items": { "type": "integer" } }]
+      }
+    ],
+    "events": [
+      {
+        "name": "onPinButton",
+        "type": "function",
+        "description": "The pin button of a message in the cards view was clicked.",
+        "parameters": [{ "name": "messageId", "type": "integer" }]
+      },
+      {
+        "name": "onRefresh",
+        "type": "function",
+        "description": "The refresh button in the message list header was clicked.",
+        "parameters": []
+      }
+    ]
+  }
+]

@@ -1,0 +1,241 @@
+{
+  "manifest_version": 2,
+  "name": "Outlook Mode",
+  "version": "3.9.33",
+  "description": "Outlook-style features for Thunderbird: inline reply in the reading pane with newest mail on top (with Thunderbird Conversations), new messages in a pane of the main window, pin button and refresh button in the message list, settings and contacts sync between devices, @mentions, @Mentioned-me tagging, Undo Send, Schedule send, pinned mail on top, Outlook reply/forward header, Quick Steps, Outlook shortcuts and history with a sender, new contacts in the company format (Name (Company-Department)), one notice when Microsoft's server is failing and one when it is back.",
+  "author": "Tung",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "outlook-mention@tung.local",
+      "strict_min_version": "128.0"
+    }
+  },
+  "background": {
+    "scripts": [
+      "background/boot.js",
+      "background/common.js",
+      "background/mention.js",
+      "background/graph.js",
+      "background/pin.js",
+      "background/pin-sync.js",
+      "background/settings-sync.js",
+      "background/recommended.js",
+      "background/mail-list.js",
+      "background/quicksteps.js",
+      "background/reply-header.js",
+      "background/reading-pane.js",
+      "background/conversations.js",
+      "background/signature.js",
+      "background/history.js",
+      "background/undo-send.js",
+      "background/schedule-send.js",
+      "background/mentioned-me.js",
+      "background/shortcuts.js",
+      "background/search.js",
+      "background/contact-form.js",
+      "background/cleanup.js",
+      "background/main.js"
+    ]
+  },
+  "permissions": [
+    "accountsRead",
+    "addressBooks",
+    "alarms",
+    "compose",
+    "compose.save",
+    "compose.send",
+    "menus",
+    "messagesDelete",
+    "messagesMove",
+    "messagesRead",
+    "messagesTags",
+    "messagesTagsList",
+    "messagesUpdate",
+    "notifications",
+    "storage",
+    "https://graph.microsoft.com/*"
+  ],
+  "experiment_apis": {
+    "outlookPin": {
+      "schema": "experiments/outlookPin/schema.json",
+      "parent": {
+        "scopes": [
+          "addon_parent"
+        ],
+        "paths": [
+          [
+            "outlookPin"
+          ]
+        ],
+        "script": "experiments/outlookPin/implementation.js"
+      }
+    },
+    "outlookSync": {
+      "schema": "experiments/outlookSync/schema.json",
+      "parent": {
+        "scopes": [
+          "addon_parent"
+        ],
+        "paths": [
+          [
+            "outlookSync"
+          ]
+        ],
+        "script": "experiments/outlookSync/implementation.js"
+      }
+    },
+    "outlookPane": {
+      "schema": "experiments/outlookPane/schema.json",
+      "parent": {
+        "scopes": [
+          "addon_parent"
+        ],
+        "paths": [
+          [
+            "outlookPane"
+          ]
+        ],
+        "script": "experiments/outlookPane/implementation.js"
+      }
+    },
+    "outlookSearch": {
+      "schema": "experiments/outlookSearch/schema.json",
+      "parent": {
+        "scopes": [
+          "addon_parent"
+        ],
+        "paths": [
+          [
+            "outlookSearch"
+          ]
+        ],
+        "script": "experiments/outlookSearch/implementation.js"
+      }
+    },
+    "outlookServer": {
+      "schema": "experiments/outlookServer/schema.json",
+      "parent": {
+        "scopes": [
+          "addon_parent"
+        ],
+        "paths": [
+          [
+            "outlookServer"
+          ]
+        ],
+        "script": "experiments/outlookServer/implementation.js"
+      }
+    },
+    "outlookContacts": {
+      "schema": "experiments/outlookContacts/schema.json",
+      "parent": {
+        "scopes": [
+          "addon_parent"
+        ],
+        "paths": [
+          [
+            "outlookContacts"
+          ]
+        ],
+        "script": "experiments/outlookContacts/implementation.js"
+      }
+    }
+  },
+  "browser_action": {
+    "default_title": "Outlook Mode: settings, @mentions and scheduled mail",
+    "default_label": "Preferences",
+    "default_icon": "icons/quicksteps.svg",
+    "default_popup": "popup/quicksteps.html"
+  },
+  "message_display_action": {
+    "default_title": "Recent mail with this person",
+    "default_label": "History",
+    "default_icon": "icons/history.svg",
+    "default_popup": "popup/history.html"
+  },
+  "compose_action": {
+    "default_title": "Schedule send",
+    "default_label": "Send later",
+    "default_icon": "icons/schedule.svg",
+    "default_popup": "popup/schedule.html",
+    "default_area": "maintoolbar"
+  },
+  "options_ui": {
+    "page": "options/options.html",
+    "open_in_tab": true
+  },
+  "commands": {
+    "toggle-pin": {
+      "suggested_key": {
+        "default": "Alt+Shift+P"
+      },
+      "description": "Pin / unpin the selected messages"
+    },
+    "ol-delete": {
+      "suggested_key": {
+        "default": "Ctrl+D"
+      },
+      "description": "Delete the selected messages (Outlook Ctrl+D)"
+    },
+    "ol-move": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+V"
+      },
+      "description": "Move the selected messages to a folder (Outlook Ctrl+Shift+V)"
+    },
+    "ol-forward-attachment": {
+      "suggested_key": {
+        "default": "Ctrl+Alt+F"
+      },
+      "description": "Forward the selected messages as attachments (Outlook Ctrl+Alt+F)"
+    },
+    "ol-mark-read": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+Q"
+      },
+      "description": "Mark the selected messages as read (Outlook Ctrl+Q)"
+    },
+    "ol-mark-unread": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+U"
+      },
+      "description": "Mark the selected messages as unread (Outlook Ctrl+U)"
+    },
+    "ol-show-mentions": {
+      "suggested_key": {
+        "default": "Alt+Shift+M"
+      },
+      "description": "Show only mail that @mentions me"
+    },
+    "quickstep-1": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+1"
+      },
+      "description": "Run Quick Step 1"
+    },
+    "quickstep-2": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+2"
+      },
+      "description": "Run Quick Step 2"
+    },
+    "quickstep-3": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+3"
+      },
+      "description": "Run Quick Step 3"
+    },
+    "quickstep-4": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+4"
+      },
+      "description": "Run Quick Step 4"
+    },
+    "quickstep-5": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+5"
+      },
+      "description": "Run Quick Step 5"
+    }
+  }
+}

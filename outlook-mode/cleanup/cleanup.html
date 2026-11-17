@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Clean up mailbox</title>
+  <link rel="stylesheet" href="cleanup.css">
+</head>
+<body>
+  <main>
+    <h1>🧹 Clean up mailbox</h1>
+    <div class="topbar">
+      <label>Account <select id="account"></select></label>
+      <button id="rescan">Scan again</button>
+      <span id="progress" class="hint"></span>
+    </div>
+
+    <section class="card" id="usage-card">
+      <div id="usage-text">Reading your mail…</div>
+      <div class="meter"><div id="usage-fill"></div></div>
+      <div class="limit" id="limit-box">
+        <label>Mailbox limit <input type="number" id="limit" min="0.1" max="1024" step="0.5" placeholder="e.g. 2"> GB</label>
+        <span class="hint">The server does not tell it: type it once (ask your mail administrator if unsure), it is kept for this account.</span>
+      </div>
+      <div class="hint">Mail moved to Deleted Items still counts toward the mailbox size. Empty Deleted Items (below) to free the space.</div>
+    </section>
+
+    <h2>Quick clean</h2>
+    <div class="cards" id="cards"></div>
+
+    <h2>Top senders</h2>
+    <section class="card" id="auto-senders-box">
+      <div class="label">🤖 Automatic senders — clean these first</div>
+      <div class="hint">Notifications and no-reply mail, by service. The name on such mail is often the person who did something (a pull request, a comment), not who sent it. “Review” shows the mail below.</div>
+      <table id="auto-senders"></table>
+    </section>
+    <section class="card people">
+      <div class="label">👤 People</div>
+      <div class="hint">Who takes the most room. “Review” shows their mail below.</div>
+      <table id="senders"></table>
+    </section>
+
+    <h2 id="review">Review and clean</h2>
+    <div class="step"><span class="num">1</span> Choose which mail</div>
+    <section class="card filters">
+      <div class="filter folders">
+        <div class="label">Folders <button class="link" id="folders-all">all</button> <button class="link" id="folders-none">none</button></div>
+        <div id="folder-list"></div>
+      </div>
+      <div class="filter-grid">
+        <label>Received before <input type="date" id="before"></label>
+        <label>Received after <input type="date" id="after"></label>
+        <label>From contains <input type="text" id="from" placeholder="name or address"></label>
+        <label>Subject contains <input type="text" id="subject" placeholder="words"></label>
+        <label>Size at least
+          <select id="min-size">
+            <option value="0">any size</option>
+            <option value="102400">100 KB</option>
+            <option value="1048576">1 MB</option>
+            <option value="5242880">5 MB</option>
+            <option value="10485760">10 MB</option>
+            <option value="26214400">25 MB</option>
+          </select>
+        </label>
+        <label>Attachments
+          <select id="attachment">
+            <option value="any">any</option>
+            <option value="with">with attachments</option>
+            <option value="without">without attachments</option>
+          </select>
+        </label>
+        <label>State
+          <select id="state">
+            <option value="any">read and unread</option>
+            <option value="unread">unread only</option>
+            <option value="read">read only</option>
+          </select>
+        </label>
+        <div class="protect">
+          <div class="label">Never touch</div>
+          <div class="check">📌 pinned mail, always (unpin it first)</div>
+          <label class="check"><input type="checkbox" id="protect-flagged" checked> 🚩 flagged mail</label>
+        </div>
+      </div>
+      <div class="filter-actions">
+        <span id="filter-label" class="hint"></span>
+        <button class="link" id="reset">Reset filters</button>
+      </div>
+    </section>
+
+    <div class="step"><span class="num">2</span> Check the list — untick what to keep</div>
+    <section class="card results">
+      <div class="results-head">
+        <div id="summary"></div>
+        <label class="hint">Sort
+          <select id="sort">
+            <option value="date">oldest first</option>
+            <option value="-date">newest first</option>
+            <option value="-size">largest first</option>
+          </select>
+        </label>
+      </div>
+      <table id="results"></table>
+      <div id="more" class="hint"></div>
+    </section>
+    <div class="actions">
+      <div class="step"><span class="num">3</span> <span id="act-label"></span></div>
+      <div class="buttons">
+        <button class="primary" id="trash">🗑 Move to Deleted Items</button>
+        <button id="archive">🗄 Archive</button>
+        <button class="danger" id="delete">Delete permanently…</button>
+        <button id="stop" hidden>Stop</button>
+      </div>
+      <div class="meter" id="act-progress" hidden><div id="act-progress-fill"></div></div>
+      <div id="status"></div>
+    </div>
+  </main>
+  <script src="cleanup.js"></script>
+</body>
+</html>

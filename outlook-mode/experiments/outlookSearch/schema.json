@@ -1,0 +1,28 @@
+[
+  {
+    "namespace": "outlookSearch",
+    "description": "Outlook-style search in the main window: suggestions while typing in the search box, results in the message list of the mail tab instead of a new tab.",
+    "functions": [
+      {
+        "name": "configure",
+        "type": "function",
+        "async": true,
+        "description": "Applies the saved choice (default on), or saves and applies options.enabled when given. Returns { enabled }.",
+        "parameters": [
+          {
+            "name": "options",
+            "type": "object",
+            "properties": { "enabled": { "type": "boolean", "optional": true } }
+          }
+        ]
+      },
+      {
+        "name": "status",
+        "type": "function",
+        "async": true,
+        "description": "Returns { enabled, messagesRead, lastError }.",
+        "parameters": []
+      }
+    ]
+  }
+]

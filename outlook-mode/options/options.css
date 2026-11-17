@@ -1,0 +1,45 @@
+body { font: 14px/1.5 system-ui, sans-serif; color: #1f1f1f; background: #fafafa; margin: 0; }
+main { max-width: 980px; margin: 24px auto; padding: 0 20px 40px; }
+h1 { font-size: 22px; margin: 0 0 4px; }
+h1 .hint { font-weight: normal; }
+h2 { font-size: 16px; margin: 28px 0 8px; }
+.card { background: #fff; border: 1px solid #e3e3e3; border-radius: 8px; padding: 14px 16px; }
+label.toggle { display: block; margin: 6px 0; }
+.hint { color: #666; font-size: 12.5px; }
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; padding: 6px 6px; border-bottom: 1px solid #eee; vertical-align: top; }
+th { font-size: 12.5px; color: #555; font-weight: 600; }
+input[type=text], td select { font: inherit; padding: 4px 6px; border: 1px solid #ccc; border-radius: 4px; width: 100%; box-sizing: border-box; }
+select { font: inherit; padding: 2px 4px; }
+td.narrow, th.narrow { width: 1%; white-space: nowrap; }
+button { font: inherit; padding: 6px 14px; border-radius: 5px; border: 1px solid #bbb; background: #f3f3f3; cursor: pointer; }
+button.primary { background: #1a73c9; border-color: #1a73c9; color: #fff; }
+button.danger { background: transparent; border-color: transparent; color: #b3261e; padding: 4px 8px; }
+button.small { padding: 2px 10px; font-size: 12.5px; }
+.actions { margin-top: 12px; display: flex; gap: 8px; align-items: center; }
+#saved { color: #2e7d32; }
+.failed { color: #b3261e; }
+kbd { font: 12px ui-monospace, monospace; background: #f1f1f1; border: 1px solid #ddd; border-bottom-width: 2px; border-radius: 4px; padding: 1px 5px; }
+pre { margin: 0; white-space: pre-wrap; font: 12px/1.45 ui-monospace, monospace; color: #333; }
+.sync-categories { margin-left: 24px; }
+#sync-status { margin-top: 8px; }
+
+#signature-preview {
+  width: 100%;
+  height: 180px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background: #fff;
+}
+
+.toc {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 10px 0 4px;
+}
+
+h2.flash {
+  background: #fff3c4;
+  transition: background 0.3s;
+}

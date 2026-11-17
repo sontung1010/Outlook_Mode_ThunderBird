@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="popup" style="width: 290px">
+    <div class="title" style="margin-top: 2px">🕒 Schedule send</div>
+    <div id="quick"></div>
+    <div class="title">Custom time</div>
+    <input type="datetime-local" id="custom">
+    <button id="schedule" class="row" style="margin-top: 6px; justify-content: center">Schedule</button>
+    <div id="status" class="status"></div>
+    <div class="muted" style="margin: 0 4px; font-size: 11.5px">
+      The message is saved in Drafts and sent automatically. Thunderbird must be running; if it is closed at that time, the message is sent the next time it starts.
+    </div>
+  </div>
+  <script src="schedule.js"></script>
+</body>
+</html>
