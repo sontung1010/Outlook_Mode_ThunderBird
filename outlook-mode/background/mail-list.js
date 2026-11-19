@@ -190,10 +190,11 @@ async function refreshAll() {
     // again (and tells whether Microsoft's server is back).
     const folderLists = await restartFolderLists();
     await resortMailTabs();
-    const [settings, pins, contacts] = await Promise.allSettled([
+    const [settings, pins, contacts, sentCopies] = await Promise.allSettled([
       syncSettings(),
       syncAllPins({ force: true }),
       collectContacts(),
+      checkSentCopies(),
     ]);
     const parts = [
       { text: "new mail checked", error: false },
@@ -210,6 +211,13 @@ async function refreshAll() {
           : "contacts up to date",
         "contacts collection off",
         contacts
+      ),
+      refreshSummary(
+        sentCopies.value && sentCopies.value.moved
+          ? `Sent Items: ${sentCopies.value.moved} second cop${sentCopies.value.moved === 1 ? "y" : "ies"} removed`
+          : "Sent Items checked",
+        "Sent Items check off",
+        sentCopies
       ),
     ];
     const time = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });

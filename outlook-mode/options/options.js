@@ -27,6 +27,7 @@ const DEFAULT_SETTINGS = {
   contactCompanyFormat: true,
   refreshKey: true,
   undoSendSeconds: 10,
+  singleSentCopy: true,
   mentionTagging: true,
   settingsSync: false,
   syncCategories: { prefs: true, accounts: true, filters: true, contacts: true, addon: true },
@@ -58,6 +59,7 @@ const CHECKBOXES = [
   "collectContacts",
   "contactCompanyFormat",
   "mentionTagging",
+  "singleSentCopy",
   "settingsSync",
 ];
 const SYNC_CATEGORIES = ["prefs", "accounts", "filters", "contacts", "addon"];
@@ -274,6 +276,23 @@ function pinSyncLines(status) {
   );
 }
 
+// Sent Items on Graph accounts: sends that filed no second copy, and the
+// second copies moved to Deleted Items.
+function sentCopyLines(accounts, pane) {
+  const lines = [
+    `One copy of sent mail: ${pane && pane.singleSentCopy ? "on" : "off"}, ` +
+      `${(pane && pane.sentCopiesSkipped) || 0} send(s) since start filed no second copy`,
+  ];
+  for (const [id, s] of Object.entries(accounts || {})) {
+    lines.push(
+      `  Sent Items ${id}: last check ${s.lastCheck ? new Date(s.lastCheck).toLocaleString() : "never"}, ` +
+        `${s.scanned} read, ${s.moved} second cop${s.moved === 1 ? "y" : "ies"} moved to Deleted Items since start` +
+        (s.lastError ? ` (${s.lastError})` : "")
+    );
+  }
+  return lines;
+}
+
 async function checkPins() {
   const pre = document.getElementById("pin-check");
   pre.textContent = "Checking…";
@@ -442,6 +461,7 @@ async function renderDiagnostics() {
       `Contacts for @mention: ${d.contacts.contacts} from ${d.contacts.books} address book(s)` +
         (d.contacts.error ? ` (error: ${d.contacts.error})` : ""),
       ...pinSyncLines(d.pinSync),
+      ...sentCopyLines(d.sentCopies, d.readingPane),
       ...paneLines(d.readingPane),
       d.markRead.last
         ? `Mark conversation read: last at ${d.markRead.last}, ${d.markRead.selected} mail(s) (${d.markRead.found} found) in ${d.markRead.rows} row(s), ` +

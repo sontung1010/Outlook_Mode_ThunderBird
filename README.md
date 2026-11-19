@@ -1,6 +1,6 @@
 # Outlook Mode for Thunderbird
 
-`outlook-mode.xpi` (v3.9.33) is a Thunderbird add-on that makes Thunderbird behave like Outlook. It adds:
+`outlook-mode.xpi` (v3.9.34) is a Thunderbird add-on that makes Thunderbird behave like Outlook. It adds:
 
 - reply and new mail inside the main window;
 - newest-first threads;
@@ -57,6 +57,7 @@ If you change these back later, they stay as you set them. Preferences → *Appl
 | **@mention** | Type `@name` in the body and pick a person (↑ ↓, Enter). Diacritics are ignored, so `@tung` finds "Tùng". A link is inserted and the person is added to To. |
 | **@Mentioned me** | Mail that @mentions you gets the **@ Mentioned** tag. Alt+Shift+M shows only those. |
 | **Undo Send** | After Send, a bar shows *Sending in 10s… Undo / Send now*. The delay is set in Preferences (off, 5–60 s). |
+| **One copy of sent mail** | Microsoft Graph accounts: Microsoft's server keeps every mail you send in Sent Items. Thunderbird used to file a second copy of its own, which showed twice in Sent Items and as a red **Draft** in the conversation in Outlook (mobile, web, Windows), although the mail had been sent. Outlook Mode stops that second copy for mail sent from the reading pane, the new-mail pane and compose windows, and moves the second copies already there to Deleted Items (at startup, every 30 minutes and with ⟳ Refresh; a notification says how many). Turn it off in Preferences → *Sending*; Diagnostics shows the last check. |
 | **Schedule send** | Compose window → **Send later** → pick a time. Thunderbird must be running at that time; mail that became due while it was closed is sent at the next start. |
 | **Signature from Outlook** | Preferences → *Signature* (fastest: ⚡ → **✍ Signature**) → pick the identity, then either: **Use the signature in the selected mail** — select (in the message list, e.g. Sent Items) a mail you sent from Outlook with your signature; works with new Outlook and Outlook on the web, whose signatures live in the cloud; or **Import Outlook signature (.htm)…** — classic Outlook's file from `%APPDATA%\Microsoft\Signatures` (copy the `.htm` with its `_files` folder). Tables, fonts, colours and pictures are kept, and the preview shows the result. The pictures are stored inside the signature, so it shows everywhere, is sent as inline images, and syncs to your other devices. |
 | **Outlook reply header** | Replies and forwards quote the original with an Outlook `From / Sent / To / Cc / Subject` block and no quote bar. |
@@ -130,6 +131,9 @@ The data lives in a hidden folder *Outlook Mode Sync* in your mailbox. Sync runs
   node tests/cleanup-apply.test.js
   node tests/handlers.test.js
   node tests/pin-sync.test.js
+  node tests/server-health.test.js
+  node tests/sent-copies.test.js
+  NODE_PATH=<folder>/node_modules node tests/contact-form.test.js
   ```
 
 - **Version history:** in the git log.

@@ -34,6 +34,7 @@ const DEFAULT_SETTINGS = {
   contactCompanyFormat: true, // address book: new contacts as "Name (Company-Department)", email first
   refreshKey: true, // F5 = the ⟳ refresh (all accounts, folders, pins, settings, contacts)
   undoSendSeconds: 10, // 0 = Undo Send off
+  singleSentCopy: true, // Microsoft Graph accounts: one copy of sent mail in Sent Items (sent-copies.js)
   mentionTagging: true, // tag incoming mail that @mentions me
   settingsSync: false, // sync settings between devices through the Microsoft 365 mailbox
   syncCategories: { prefs: true, accounts: true, filters: true, contacts: true, addon: true },

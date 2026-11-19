@@ -1,6 +1,6 @@
 # Outlook Mode add-on: security notes
 
-What the **Outlook Mode** Thunderbird add-on (version **3.9.33**) does with the network, your credentials and your data. Every statement below was checked against the package.
+What the **Outlook Mode** Thunderbird add-on (version **3.9.34**) does with the network, your credentials and your data. Every statement below was checked against the package.
 
 ## 1. Identification
 
@@ -8,12 +8,12 @@ What the **Outlook Mode** Thunderbird add-on (version **3.9.33**) does with the 
 | --- | --- |
 | Name | Outlook Mode |
 | Add-on ID | `outlook-mention@tung.local` |
-| Version | 3.9.33 |
-| File | `outlook-mode.xpi` (208,543 bytes) |
-| SHA-256 | `931adef61260a4fa47671b35430ba7b45473fd805fe31c035bed961118f86ec8` |
+| Version | 3.9.34 |
+| File | `outlook-mode.xpi` (213,149 bytes) |
+| SHA-256 | `2977514e042581c0ff6f1c4400a9f6c993faf1a49f3253fdaa1d46071144cd08` |
 | Source | The package is a plain zip of the add-on's source files and its `LICENSE`. Unzip it to read the code. |
 | License | MIT (see `LICENSE`). |
-| Code | About 13,000 lines of plain, unminified JavaScript, HTML and CSS written for this add-on. No bundled third-party libraries. |
+| Code | About 18,500 lines of plain, unminified JavaScript, HTML and CSS written for this add-on. No bundled third-party libraries. |
 | Distribution | Not published on addons.thunderbird.net and **not signed by Mozilla**. It is installed by hand: Add-ons Manager → Install Add-on From File. |
 | Target | Thunderbird 140 or later (tested on 159 and 160, Linux), with a Microsoft 365 mailbox set up as a *Microsoft Graph* account. Minimum Thunderbird version declared: 128. |
 
@@ -61,6 +61,7 @@ The add-on reads no passwords and stores none.
 | --- | --- | --- |
 | Pin sync | **On** for Graph accounts | `GET /me/messages` (`id`, `subject`, `receivedDateTime`, two pin properties), and `PATCH /me/messages/{id}` to set Outlook's pin: the MAPI extended properties `0x0F01` and `0x0F02`, set to a date in the year 4500, which is how Outlook marks a pinned item. No other message field is changed. |
 | Mailbox cleanup page | Opened by the user | `GET /me/mailFolders` (`displayName`, `sizeInBytes`) to show folder sizes. Deleting is done through Thunderbird's normal message API, only after the user confirms. |
+| One copy of sent mail (3.9.34) | **On** for Graph accounts | `GET /me/mailFolders/sentitems/messages` (`id`, `internetMessageId`, `isDraft`, `createdDateTime` only; after the first check, only messages created since the last one), and `POST /me/messages/{id}/move` to Deleted Items for a second copy of a sent mail. See section 4c. |
 | Settings sync | **Off**; the user must turn it on | Creates a hidden folder `Outlook Mode Sync` (`POST /me/mailFolders`, `isHidden: true`) and stores one message there with a gzip JSON attachment (`POST /me/mailFolders/{id}/messages`). Reads it back (`GET .../messages`, `GET /me/messages/{id}/attachments`). Older copies of that sync message are removed with `POST /me/messages/{id}/permanentDelete`. |
 
 ## 4a. New contacts in the company format (3.9.28)
@@ -124,6 +125,17 @@ It never includes:
 - file paths.
 
 The exclusion rules are in `experiments/outlookSync/implementation.js` (`token|password|secret|oauth|...`, and the server and identity block lists). The data stays inside the user's own Microsoft 365 mailbox, in the user's own Microsoft 365 tenant.
+
+## 4c. One copy of sent mail (3.9.34)
+
+**The problem.** Thunderbird sends mail of a Microsoft Graph account with `POST /me/messages` and `/send`, and Exchange keeps the sent mail in Sent Items itself. Thunderbird then also filed its own copy (Fcc), uploaded as a new message, so every mail sent from Thunderbird was in Sent Items twice. Exchange stores the uploaded copy as an unsent draft, so Outlook (web, Windows, mobile) showed a "[Draft]" in the conversation although the mail had been sent.
+
+**What it does** (Preferences → *Sending*, on by default):
+
+- When a message is sent through a Graph outgoing server and its Fcc folder is on a Graph account, Thunderbird files no copy of its own (`compFields.fcc = "nocopy://"`). This covers the reading pane and the compose dock (experiment `outlookPane`, which builds the compose fields) and compose windows (a listener for the compose window's own `compose-send-message` event). Drafts, templates and mail sent through SMTP are not touched, and neither is an Fcc folder outside Graph accounts (e.g. Local Folders).
+- The second copies already in Sent Items are moved to Deleted Items: messages with the same Message-ID as another one in Sent Items, created at most 10 minutes apart. The copy kept is the oldest one that is not a draft (Exchange's own). The check runs 20 s after startup, every 30 minutes, on ⟳ Refresh and when Microsoft's server is back. A notification says how many copies were moved. Moving to Deleted Items can be undone there.
+
+**Security relevance**: no new host or permission. Only message ids, Message-IDs, the draft flag and creation times are read; no subject, body or recipient. The time of the last check per account is kept in `storage.local`.
 
 ## 5. Permissions
 
@@ -191,6 +203,7 @@ All of the following is stored in the Thunderbird profile, in the add-on's own `
 - settings and Quick Steps;
 - the list of scheduled messages (subject, recipients, send time); the message itself waits in the Drafts folder;
 - the pin sync queue (message IDs);
+- the time of the last Sent Items check per Graph account (section 4c);
 - settings-sync bookkeeping: the last synced state and one backup for *Undo last sync*.
 
 The add-on also changes Thunderbird's own data, all of it local:
@@ -203,12 +216,14 @@ Diagnostics (recent errors) are kept only in memory and shown on the Preferences
 
 ## 8. Actions on mail
 
-Mail is sent, moved or deleted only on user action:
+Mail is sent, moved or deleted only on user action, with one exception (second copies of sent mail, below):
 
 - Send with Undo Send (the message is held for 10 seconds, then sent through Thunderbird);
 - a scheduled time the user chose;
 - Quick Steps, keyboard shortcuts and menu entries;
 - the cleanup page, which lists the matching mail before acting.
+
+The exception: on Graph accounts, a second copy of a sent mail in Sent Items (same Message-ID, created within 10 minutes of the copy kept) is moved to Deleted Items automatically (section 4c; can be turned off in Preferences → *Sending*). Nothing is deleted permanently.
 
 On the cleanup page, permanent deletion always asks for confirmation. Moving to Deleted Items or archiving asks when more than 500 messages are involved. Cleanup never runs on its own, and pinned mail is never cleaned. Nothing is forwarded or sent automatically to addresses the user did not enter.
 
@@ -340,7 +355,7 @@ The checks are covered by `tests/handlers.test.js` and were tried on Thunderbird
 | Privilege level | High: six Experiments with full Thunderbird privileges, needed for the UI changes. Mitigation: readable source in the package; no remote code. |
 | Supply chain | None at run time. The add-on installs no software; the optional Thunderbird Conversations add-on is installed by the user through your usual channel for add-ons (section 6). |
 | Package integrity | Not Mozilla-signed. Verify with the SHA-256 above. |
-| Write access to the mailbox | Outlook pin properties (default on, Graph accounts) and one hidden sync folder (settings sync, default off). |
+| Write access to the mailbox | Outlook pin properties (default on, Graph accounts), moving second copies of sent mail to Deleted Items (default on, Graph accounts) and one hidden sync folder (settings sync, default off). |
 
 ## 10. How to verify the package
 

@@ -118,6 +118,7 @@ handlers.diagnostics = fromOwnPage(async (message, sender) => {
     composeWindowsSeen: composeScriptPings,
     contacts,
     pinSync: pinSyncStatus,
+    sentCopies: sentCopiesStatus,
     settingsSync: settingsSyncStatus,
     readingPane: await handlers["reading-pane-status"](message, sender),
     markRead: await handlers["mark-read-status"](message, sender),

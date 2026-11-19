@@ -11,6 +11,13 @@
         "parameters": [{ "name": "config", "type": "object", "additionalProperties": { "type": "any" } }]
       },
       {
+        "name": "setSingleSentCopy",
+        "type": "function",
+        "async": true,
+        "description": "On: a message sent through a Microsoft Graph outgoing server (reading pane, compose dock or compose window) is not filed again by Thunderbird in a folder of a Graph account, since Exchange already keeps it in Sent Items. Returns { enabled, skipped } (skipped: sends that filed no second copy since start).",
+        "parameters": [{ "name": "enabled", "type": "boolean" }]
+      },
+      {
         "name": "conversationsState",
         "type": "function",
         "async": true,

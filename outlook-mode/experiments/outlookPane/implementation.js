@@ -108,6 +108,10 @@ const paneState = {
   files: new Map(), // token of a file attached in the pane -> its local path
   pending: new Map(), // message URI -> { timer, until, fields } (Undo Send)
   listeners: { popOut: new Set(), sendResult: new Set(), pin: new Set(), openSettings: new Set() },
+  singleSentCopy: false, // Graph accounts: no Fcc copy of our own (paneFccIsSecondCopy)
+  sentCopyListener: false,
+  sentCopyWindows: new Set(), // compose windows with the compose-send-message listener
+  sentCopiesSkipped: 0, // sends that filed no second copy
   addressCache: null,
   lastError: "",
 };
@@ -865,6 +869,11 @@ async function paneDeliver(uri, draft) {
     fields.addAttachment(paneAttachment(Services.io.newFileURI(file).spec, f.name, f.type));
   }
 
+  if (paneFccIsSecondCopy(identity, fields.fcc)) {
+    fields.fcc = "nocopy://";
+    paneState.sentCopiesSkipped++;
+  }
+
   const own = `<div style="font-family: ${paneEscape(paneFont())}; font-size: ${PANE_FONT_SIZE};">${draft.html || ""}</div>`;
   const body =
     '<!DOCTYPE html><html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"></head><body>' +
@@ -886,6 +895,111 @@ async function paneDeliver(uri, draft) {
   } catch (error) {
     paneNote("mark replied", error);
   }
+}
+
+/* ------------------------------------------------------------------ */
+/* One copy of sent mail on Microsoft Graph accounts                   */
+/* ------------------------------------------------------------------ */
+
+// Thunderbird sends through a Microsoft Graph outgoing server with
+// POST /me/messages and /send, and Exchange then keeps the sent message in
+// Sent Items itself. Thunderbird still files its own copy (Fcc) as well,
+// uploaded as a new message: every sent mail was in Sent Items twice, and
+// Exchange stores the uploaded copy as an unsent draft, which Outlook shows
+// as "[Draft]" in the conversation. With singleSentCopy on, a send whose Fcc
+// folder is on a Graph account files no copy of its own: the reading pane's
+// and the dock's sends (paneDeliver) and the compose window's
+// (paneSentCopyComposeSend).
+
+function paneOutgoingIsGraph(identity) {
+  try {
+    const server = MailServices.outgoingServer.getServerByIdentity(identity);
+    return String((server && server.type) || "").toLowerCase() == "graph";
+  } catch (error) {
+    return false;
+  }
+}
+
+// Whether Thunderbird's copy of a message the identity sends, with the
+// compose fields' fcc (empty: the identity's own Sent folder), would be the
+// second copy on the server. Same choice of folder as MessageSend's getFcc.
+function paneFccIsSecondCopy(identity, fcc) {
+  if (!paneState.singleSentCopy || !identity || !paneOutgoingIsGraph(identity)) {
+    return false;
+  }
+  fcc = String(fcc || "");
+  if (fcc.startsWith("nocopy://")) {
+    return false;
+  }
+  let folder = fcc ? MailUtils.getExistingFolder(fcc) : null;
+  if (!folder) {
+    if (!identity.doFcc || !identity.fccFolderURI) {
+      return false;
+    }
+    folder = MailUtils.getExistingFolder(identity.fccFolderURI);
+  }
+  return Boolean(folder && folder.server && String(folder.server.type).toLowerCase() == "graph");
+}
+
+const PANE_SENT_COPY_LISTENER = "outlookPane-sent-copy";
+const PANE_SEND_MODES = new Set(
+  [Ci.nsIMsgCompDeliverMode.Now, Ci.nsIMsgCompDeliverMode.Later, Ci.nsIMsgCompDeliverMode.Background].filter(
+    (mode) => mode !== undefined
+  )
+);
+
+// The compose window's "compose-send-message" event comes just before
+// gMsgCompose.sendMsg(), which builds the message from these compose fields.
+function paneSentCopyComposeSend(event) {
+  try {
+    const win = event.currentTarget;
+    if (!PANE_SEND_MODES.has(event.detail && event.detail.msgType)) {
+      return; // saving a draft or template
+    }
+    const fields = win.gMsgCompose && win.gMsgCompose.compFields;
+    if (fields && paneFccIsSecondCopy(win.gCurrentIdentity, fields.fcc)) {
+      fields.fcc = "nocopy://";
+      paneState.sentCopiesSkipped++;
+    }
+  } catch (error) {
+    paneNote("sent copy", error);
+  }
+}
+
+function paneSentCopyWatch(win) {
+  if (!paneState.sentCopyWindows.has(win)) {
+    win.addEventListener("compose-send-message", paneSentCopyComposeSend);
+    paneState.sentCopyWindows.add(win);
+    win.addEventListener("unload", () => paneState.sentCopyWindows.delete(win), { once: true });
+  }
+}
+
+function paneSetSingleSentCopy(enabled) {
+  paneState.singleSentCopy = Boolean(enabled);
+  if (paneState.singleSentCopy && !paneState.sentCopyListener) {
+    ExtensionSupport.registerWindowListener(PANE_SENT_COPY_LISTENER, {
+      chromeURLs: ["chrome://messenger/content/messengercompose/messengercompose.xhtml"],
+      onLoadWindow: paneSentCopyWatch,
+    });
+    paneState.sentCopyListener = true;
+  } else if (!paneState.singleSentCopy) {
+    paneStopSentCopy();
+  }
+}
+
+function paneStopSentCopy() {
+  if (paneState.sentCopyListener) {
+    ExtensionSupport.unregisterWindowListener(PANE_SENT_COPY_LISTENER);
+    paneState.sentCopyListener = false;
+  }
+  for (const win of paneState.sentCopyWindows) {
+    try {
+      win.removeEventListener("compose-send-message", paneSentCopyComposeSend);
+    } catch (error) {
+      // the window is closing
+    }
+  }
+  paneState.sentCopyWindows.clear();
 }
 
 // Tell the open panes, then the background (which notifies on failure when
@@ -1827,6 +1941,8 @@ function paneStatus() {
     newMessages: paneState.newOrder.length,
     dock: Boolean(paneState.dock && !paneState.dock.hidden),
     composeRoutedWindows: paneState.composeRouted.size,
+    singleSentCopy: paneState.singleSentCopy,
+    sentCopiesSkipped: paneState.sentCopiesSkipped,
     lastError: paneState.lastError,
   };
 }
@@ -1851,6 +1967,7 @@ this.outlookPane = class extends ExtensionCommon.ExtensionAPI {
     }
     // Disabled or updated: messages in their countdown are sent now.
     paneFlushPending();
+    paneStopSentCopy();
     paneStopObserving();
     paneRemoveAll();
     if (paneState.chromeHandle) {
@@ -1897,6 +2014,10 @@ this.outlookPane = class extends ExtensionCommon.ExtensionAPI {
         },
         async status() {
           return paneStatus();
+        },
+        async setSingleSentCopy(enabled) {
+          paneSetSingleSentCopy(enabled);
+          return { enabled: paneState.singleSentCopy, skipped: paneState.sentCopiesSkipped };
         },
         async conversationsState() {
           return paneConversationsState();
