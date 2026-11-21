@@ -1,16 +1,28 @@
 /* Outlook Mode: reading pane additions for the Thunderbird Conversations view
  * (added by reading-pane/pane.js). */
 
-/* Newest message on top. Conversations renders div#messageList > ul > li. */
-html[data-ol-newest-first] div#messageList > ul {
+/* Messages in date order (pane.js gives each li its CSS order, oldest 0),
+ * newest on top. Conversations renders div#messageList > ul > li, and adds a
+ * message that comes in later at the end, whatever its date. */
+div#messageList > ul {
   display: flex;
+  flex-direction: column;
+}
+html[data-ol-newest-first] div#messageList > ul {
   flex-direction: column-reverse;
+}
+
+/* No "In Sent Items" (or other folder) tag on a message of the conversation
+ * that is in another folder: Outlook shows none, and with your own replies
+ * in Sent Items it was on every one of them. */
+li.message .special-tags > li.in-folder {
+  display: none !important;
 }
 
 /* Only the newest message, which quotes the rest; collapsed earlier ones
  * wait behind #ol-earlier. */
 html[data-ol-latest-only]:not([data-ol-show-earlier])
-  div#messageList > ul > li.message:not(:last-child):not(:has(message-footer)) {
+  div#messageList > ul > li.message:not([data-ol-newest]):not(:has(message-footer)) {
   display: none !important;
 }
 

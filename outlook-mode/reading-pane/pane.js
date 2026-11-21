@@ -204,14 +204,71 @@
 
   // Conversations' message ids, oldest first.
   function conversationIds() {
-    return [...doc.querySelectorAll("li.message message-header-options[msgid]")]
-      .map((node) => Number(node.getAttribute("msgid")))
+    return messageItems()
+      .map(convIdOfLi)
       .filter((id) => id > 0);
   }
 
   function convIdOfLi(li) {
     const node = li && li.querySelector("message-header-options[msgid]");
     return node ? Number(node.getAttribute("msgid")) : 0;
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* Messages in date order                                            */
+  /* ---------------------------------------------------------------- */
+
+  // Conversations sorts a conversation by date when it shows it, but a
+  // message that comes in while it is shown (new mail, or a reply in Sent
+  // Items that Thunderbird's index only now knows) is added at the end of
+  // its list, whatever its date. With newest first, such an older message
+  // showed above newer ones. So the messages are ordered by their dates
+  // here: messageItems() is the list oldest first, and applyOrder() gives
+  // each message its place on screen (CSS order; the list is a flex box,
+  // pane.css), marking the newest one (data-ol-newest). Conversations' own
+  // nodes are not moved.
+  const messageDates = new Map(); // conversation id -> date (ms)
+
+  function messageDate(li) {
+    const id = convIdOfLi(li);
+    if (!id) {
+      return null;
+    }
+    if (!messageDates.has(id)) {
+      const date = typeof bridge.dateForConvId === "function" ? bridge.dateForConvId(id) : null;
+      if (!Number.isFinite(date)) {
+        return null; // asked again next time
+      }
+      messageDates.set(id, date);
+    }
+    return messageDates.get(id);
+  }
+
+  // The messages, oldest first; in the page's order while a date is unknown.
+  function messageItems() {
+    const items = [...doc.querySelectorAll("div#messageList > ul > li.message")];
+    const dated = items.map((li, index) => ({ li, index, date: messageDate(li) }));
+    if (dated.some((item) => item.date === null)) {
+      return items;
+    }
+    return dated.sort((a, b) => a.date - b.date || a.index - b.index).map((item) => item.li);
+  }
+
+  function applyOrder() {
+    const items = messageItems();
+    items.forEach((li, index) => {
+      if (li.style.order !== String(index)) {
+        li.style.order = String(index);
+      }
+      li.toggleAttribute("data-ol-newest", index === items.length - 1);
+    });
+  }
+
+  function clearOrder() {
+    for (const li of doc.querySelectorAll("li.message")) {
+      li.style.removeProperty("order");
+      li.removeAttribute("data-ol-newest");
+    }
   }
 
   /* ---------------------------------------------------------------- */
@@ -231,6 +288,7 @@
     const root = doc.documentElement;
     root.toggleAttribute("data-ol-newest-first", Boolean(config.newestFirst));
     root.toggleAttribute("data-ol-latest-only", latestOnly());
+    applyOrder();
     expandMessages(conversationIds());
     updateEarlier(conversationIds());
     root.toggleAttribute("data-ol-inline-reply", Boolean(config.inlineReply));
@@ -379,7 +437,7 @@
     const todo = []; // [id, header, "expand" | "reload"], oldest first
     let loading = 0;
     let waiting = false; // a reload waits for its delay
-    for (const li of doc.querySelectorAll("div#messageList > ul > li.message")) {
+    for (const li of messageItems()) {
       const id = convIdOfLi(li);
       const header = li.querySelector(".messageHeader");
       if (!id || !header) {
@@ -491,7 +549,7 @@
     }
     earlierIds = ids;
     doc.documentElement.toggleAttribute("data-ol-show-earlier", earlierShown);
-    const items = [...doc.querySelectorAll("div#messageList > ul > li.message")].slice(0, -1);
+    const items = messageItems().slice(0, -1);
     const hidden = items.filter((li) => !li.querySelector("message-footer")).length;
     const list = doc.getElementById("messageList");
     if (!latestOnly() || !hidden || !list) {
@@ -729,6 +787,15 @@
     if (header) {
       found.push([header, true]);
     }
+    // New Outlook and Outlook on the web, without #divRplyFwdMsg: a line
+    // (<hr>) right above the header block ("From:" / "差出人:" ...).
+    const rule = [...body.querySelectorAll("hr")].find((node) => {
+      const next = node.nextElementSibling;
+      return next && FROM_LABEL.test(next.textContent);
+    });
+    if (rule) {
+      found.push([rule, true]);
+    }
     for (const sel of [".gmail_quote", ".yahoo_quoted", ".moz-cite-prefix", ".moz-forward-container", "blockquote"]) {
       const node = body.querySelector(sel);
       if (node) {
@@ -866,7 +933,7 @@
   }
 
   function updateQuoteFolds() {
-    const items = [...doc.querySelectorAll("div#messageList > ul > li.message")];
+    const items = messageItems();
     items.forEach((li, index) => {
       const frame = li.querySelector("iframe");
       if (!frame || index === 0) {
@@ -2837,6 +2904,7 @@
   // composer (its draft is kept) when another conversation is shown, and
   // bring back a draft or a countdown when its conversation comes back.
   function syncConversation() {
+    applyOrder();
     const ids = conversationIds();
     expandMessages(ids);
     updateEarlier(ids);
@@ -2908,6 +2976,7 @@
     }
     blobUrls.clear();
     earlierButton?.remove();
+    clearOrder();
     for (const li of doc.querySelectorAll("li.message[data-ol-load]")) {
       li.removeAttribute("data-ol-load");
     }

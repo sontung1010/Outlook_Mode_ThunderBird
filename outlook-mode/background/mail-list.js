@@ -189,6 +189,8 @@ async function refreshAll() {
     // Microsoft Graph account; run it here, which also starts a failing one
     // again (and tells whether Microsoft's server is back).
     const folderLists = await restartFolderLists();
+    // Mail the Graph sync brought in, for the reading pane's conversations.
+    indexGraphMail(true).catch((error) => logError("refresh index", error));
     await resortMailTabs();
     const [settings, pins, contacts, sentCopies] = await Promise.allSettled([
       syncSettings(),

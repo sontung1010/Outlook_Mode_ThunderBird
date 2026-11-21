@@ -1,6 +1,6 @@
 # Outlook Mode add-on: security notes
 
-What the **Outlook Mode** Thunderbird add-on (version **3.9.34**) does with the network, your credentials and your data. Every statement below was checked against the package.
+What the **Outlook Mode** Thunderbird add-on (version **3.9.38**) does with the network, your credentials and your data. Every statement below was checked against the package.
 
 ## 1. Identification
 
@@ -8,12 +8,12 @@ What the **Outlook Mode** Thunderbird add-on (version **3.9.34**) does with the 
 | --- | --- |
 | Name | Outlook Mode |
 | Add-on ID | `outlook-mention@tung.local` |
-| Version | 3.9.34 |
-| File | `outlook-mode.xpi` (213,149 bytes) |
-| SHA-256 | `2977514e042581c0ff6f1c4400a9f6c993faf1a49f3253fdaa1d46071144cd08` |
+| Version | 3.9.38 |
+| File | `outlook-mode.xpi` (216,596 bytes) |
+| SHA-256 | `3e279afe8a895b315fc5ffa6695f86dd5c30a8a5ef43658e825c339f6f07db26` |
 | Source | The package is a plain zip of the add-on's source files and its `LICENSE`. Unzip it to read the code. |
 | License | MIT (see `LICENSE`). |
-| Code | About 18,500 lines of plain, unminified JavaScript, HTML and CSS written for this add-on. No bundled third-party libraries. |
+| Code | About 18,700 lines of plain, unminified JavaScript, HTML and CSS written for this add-on. No bundled third-party libraries. |
 | Distribution | Not published on addons.thunderbird.net and **not signed by Mozilla**. It is installed by hand: Add-ons Manager → Install Add-on From File. |
 | Target | Thunderbird 140 or later (tested on 159 and 160, Linux), with a Microsoft 365 mailbox set up as a *Microsoft Graph* account. Minimum Thunderbird version declared: 128. |
 
@@ -136,6 +136,15 @@ The exclusion rules are in `experiments/outlookSync/implementation.js` (`token|p
 - The second copies already in Sent Items are moved to Deleted Items: messages with the same Message-ID as another one in Sent Items, created at most 10 minutes apart. The copy kept is the oldest one that is not a draft (Exchange's own). The check runs 20 s after startup, every 30 minutes, on ⟳ Refresh and when Microsoft's server is back. A notification says how many copies were moved. Moving to Deleted Items can be undone there.
 
 **Security relevance**: no new host or permission. Only message ids, Message-IDs, the draft flag and creation times are read; no subject, body or recipient. The time of the last check per account is kept in `storage.local`.
+
+## 4d. Message index for Graph accounts (3.9.35)
+
+Thunderbird Conversations finds the messages of a conversation in other folders (your own replies in Sent Items) through Thunderbird's message index, Gloda. Gloda indexes new mail when Thunderbird reports it as classified, which Thunderbird's Microsoft Graph sync does not do, so mail it brings in (such as the Sent Items copy of a mail sent from Thunderbird) was missing from the conversation view. The experiment `outlookServer` (`indexGraphMail`):
+
+- listens for mail added to folders of Graph accounts (`nsIMsgFolderListener.msgAdded`) and passes those messages to Gloda's own indexer (`GlodaMsgIndexer.indexMessages`);
+- marks Graph folders whose message count changed (all Graph folders at startup and on ⟳ Refresh) as dirty in Gloda (`_ensureFolderDirty`), so Gloda's normal sweep indexes the messages it does not know yet.
+
+**Security relevance**: no network access, no new permission. Nothing is read or written by the add-on itself: Gloda indexes the messages the way Thunderbird always does, into its own local database. Other accounts are not touched, and nothing is done when Gloda is turned off in Thunderbird. The listener is removed when the add-on stops.
 
 ## 5. Permissions
 

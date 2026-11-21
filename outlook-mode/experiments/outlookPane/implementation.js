@@ -1103,6 +1103,17 @@ const paneBridge = {
       return null;
     }
   },
+  // The date of a message of the conversation (ms), to order the messages:
+  // Conversations appends a message that comes in while the conversation is
+  // shown at the end of its list, whatever its date.
+  dateForConvId(id) {
+    try {
+      const hdr = hdrFromUri(this.uriForConvId(id));
+      return hdr ? Math.floor(hdr.date / 1000) : null;
+    } catch (error) {
+      return null;
+    }
+  },
   convIdForUri(uri) {
     const ext = conversationsExtension();
     const hdr = hdrFromUri(uri);

@@ -442,6 +442,13 @@ function serverLines(server) {
     }; Thunderbird error notices seen ${watch.seen ?? "?"}, held back ${watch.held ?? "?"}` +
       (watch.lastError ? ` (error: ${watch.lastError})` : ""),
   ];
+  if (watch.index) {
+    lines.push(
+      `Message index (Gloda) for Graph folders: ${watch.index.gloda ? "on" : "OFF in Thunderbird"}, ` +
+        `${watch.index.queued} new mail(s) and ${watch.index.dirtied} folder check(s) given to it since start` +
+        (watch.index.lastCheck ? `, last check ${new Date(watch.index.lastCheck).toLocaleString()}` : "")
+    );
+  }
   for (const entry of server.log.slice(-5)) {
     lines.push(`  ${entry.at}  ${entry.account}: ${entry.text}`);
   }

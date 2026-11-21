@@ -35,10 +35,17 @@
         "parameters": [{ "name": "accountId", "type": "string" }]
       },
       {
+        "name": "indexGraphMail",
+        "type": "function",
+        "async": true,
+        "description": "Keeps Thunderbird's message index (Gloda) up to date for Graph accounts: mail the Graph sync adds is indexed, and the Graph folders whose message count changed since the last call (all of them with force) are marked for Gloda's next sweep. Returns the number of folders marked.",
+        "parameters": [{ "name": "force", "type": "boolean" }]
+      },
+      {
         "name": "status",
         "type": "function",
         "async": true,
-        "description": "Returns { watching, quiet, seen, held, lastError }.",
+        "description": "Returns { index: { gloda, queued, dirtied, lastCheck }, watching, quiet, seen, held, lastError }.",
         "parameters": []
       }
     ],

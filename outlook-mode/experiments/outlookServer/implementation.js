@@ -22,6 +22,18 @@
 //
 // The notices are seen by wrapping onAlert of Thunderbird's alertHook (the
 // module that shows them); the wrapper is removed when the add-on stops.
+//
+// It also keeps Thunderbird's message index (Gloda) up to date for Graph
+// accounts (indexGraphMail). Gloda indexes new mail when Thunderbird reports
+// it as classified (msgsClassified), which the Graph sync does not do for
+// mail it brings in, e.g. the Sent Items copy of a mail sent from
+// Thunderbird. Thunderbird Conversations finds the messages of a
+// conversation in other folders through Gloda, so such mail was missing from
+// the reading pane (a reply sent from Thunderbird, in Sent Items). Here:
+// - mail added to a Graph folder (msgAdded) is given to Gloda's indexer;
+// - a Graph folder whose message count changed since the last check (and
+//   every Graph folder on a forced check: startup, Refresh) is marked dirty,
+//   so Gloda's next sweep indexes what it does not know yet.
 
 var { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
 var { setTimeout, clearTimeout } = ChromeUtils.importESModule("resource://gre/modules/Timer.sys.mjs");
@@ -39,6 +51,15 @@ const srvState = {
   seen: 0,
   held: 0,
   lastError: "",
+  index: {
+    listener: null, // nsIMsgFolderListener for msgAdded
+    counts: new Map(), // folder URI -> message count at the last check
+    queue: [], // [folder, key] of added mail, given to Gloda in one job
+    flushTimer: null,
+    queued: 0, // mail given to Gloda's indexer since start
+    dirtied: 0, // folders marked for Gloda's sweep since start
+    lastCheck: "",
+  },
 };
 
 function srvNote(where, error) {
@@ -208,12 +229,130 @@ function srvSyncFolderList(accountId) {
   });
 }
 
+/* ------------------------------------------------------------------ */
+/* Gloda index for Graph accounts                                      */
+/* ------------------------------------------------------------------ */
+
+const SRV_INDEX_FLUSH_MS = 3000;
+
+function srvGloda() {
+  try {
+    const { GlodaMsgIndexer } = ChromeUtils.importESModule("resource:///modules/gloda/IndexMsg.sys.mjs");
+    const { GlodaDatastore } = ChromeUtils.importESModule("resource:///modules/gloda/GlodaDatastore.sys.mjs");
+    return GlodaMsgIndexer && GlodaMsgIndexer.enabled ? { GlodaMsgIndexer, GlodaDatastore } : null;
+  } catch (error) {
+    return null; // Gloda turned off or not there
+  }
+}
+
+function srvGraphFolders() {
+  const folders = [];
+  for (const server of MailServices.accounts.allServers) {
+    if (server.type == "graph") {
+      try {
+        folders.push(...server.rootFolder.descendants);
+      } catch (error) {
+        srvNote("folders", error);
+      }
+    }
+  }
+  return folders;
+}
+
+function srvIndexFlush() {
+  const index = srvState.index;
+  index.flushTimer = null;
+  const items = index.queue.splice(0);
+  const gloda = srvGloda();
+  if (!gloda || !items.length) {
+    return;
+  }
+  try {
+    gloda.GlodaMsgIndexer.indexMessages(items.filter(([folder]) => gloda.GlodaMsgIndexer.shouldIndexFolder(folder)));
+    index.queued += items.length;
+  } catch (error) {
+    srvNote("index new mail", error);
+  }
+}
+
+function srvIndexListen() {
+  const index = srvState.index;
+  if (index.listener) {
+    return;
+  }
+  index.listener = {
+    msgAdded(hdr) {
+      try {
+        if (hdr && hdr.folder && hdr.folder.server && hdr.folder.server.type == "graph") {
+          index.queue.push([hdr.folder, hdr.messageKey]);
+          if (!index.flushTimer) {
+            index.flushTimer = setTimeout(srvIndexFlush, SRV_INDEX_FLUSH_MS);
+          }
+        }
+      } catch (error) {
+        srvNote("new mail", error);
+      }
+    },
+    QueryInterface: ChromeUtils.generateQI(["nsIMsgFolderListener"]),
+  };
+  MailServices.mfn.addListener(index.listener, Ci.nsIMsgFolderNotificationService.msgAdded);
+}
+
+function srvIndexStop() {
+  const index = srvState.index;
+  if (index.listener) {
+    MailServices.mfn.removeListener(index.listener);
+    index.listener = null;
+  }
+  clearTimeout(index.flushTimer);
+  index.flushTimer = null;
+  index.queue.length = 0;
+}
+
+// Marks the Graph folders whose message count changed (all with force) for
+// Gloda's sweep. Returns the number of folders marked.
+function srvIndexGraphMail(force) {
+  srvIndexListen();
+  const index = srvState.index;
+  index.lastCheck = new Date().toISOString();
+  const gloda = srvGloda();
+  if (!gloda) {
+    return 0;
+  }
+  let dirtied = 0;
+  for (const folder of srvGraphFolders()) {
+    try {
+      if (!gloda.GlodaMsgIndexer.shouldIndexFolder(folder)) {
+        continue;
+      }
+      const count = folder.getTotalMessages(false);
+      if (!force && index.counts.get(folder.URI) === count) {
+        continue;
+      }
+      index.counts.set(folder.URI, count);
+      const glodaFolder = gloda.GlodaDatastore._mapFolder(folder);
+      if (glodaFolder) {
+        glodaFolder._ensureFolderDirty();
+        dirtied++;
+      }
+    } catch (error) {
+      srvNote(`index ${folder.prettyName}`, error);
+    }
+  }
+  if (dirtied) {
+    gloda.GlodaMsgIndexer.indexingSweepNeeded = true;
+    index.dirtied += dirtied;
+  }
+  return dirtied;
+}
+
 this.outlookServer = class extends ExtensionCommon.ExtensionAPI {
   onShutdown(isAppShutdown) {
     if (isAppShutdown) {
       return;
     }
     srvUnwrap();
+    srvIndexStop();
     Services.obs.notifyObservers(null, "startupcache-invalidate");
   }
 
@@ -243,8 +382,17 @@ this.outlookServer = class extends ExtensionCommon.ExtensionAPI {
           server.getNewMessages(server.rootFolder, window, null);
           return true;
         },
+        async indexGraphMail(force) {
+          return srvIndexGraphMail(Boolean(force));
+        },
         async status() {
           return {
+            index: {
+              gloda: Boolean(srvGloda()),
+              queued: srvState.index.queued,
+              dirtied: srvState.index.dirtied,
+              lastCheck: srvState.index.lastCheck,
+            },
             watching: Boolean(srvState.wrapper),
             quiet: [...srvState.quiet],
             seen: srvState.seen,

@@ -508,6 +508,13 @@ const key = (target, k, opts = {}) =>
     105: "<pre>Plain reply\n________________________________\nFrom: Bob\nSent: Monday\n\nPlain original</pre>",
     106: '<p>TB reply</p><div class="moz-cite-prefix">On Monday Ann wrote:</div><button class="showhidequote">-</button><blockquote type="cite">TB original</blockquote>',
     107: '<p>Inline intro</p><div class="moz-cite-prefix">On Monday Ann wrote:</div><blockquote type="cite">Short quote</blockquote><p>Inline answer</p>',
+    // New Outlook (Japanese), no #divRplyFwdMsg: a line, then the header.
+    108:
+      '<div class="elementToProof">New Outlook reply</div><div><br></div>' +
+      '<hr style="display: inline-block; width: 98%;"><div style="font-size: 12pt;"><b>差出人:</b> Thuyen<br><b>送信:</b> 2026 年 11 月 20 日<br><b>件名:</b> RE: Hello</div>' +
+      "<div>Japanese original</div>",
+    // A line in the text that is not a quote stays.
+    109: '<p>Above the line</p><hr><p>Below the line</p>',
   };
   const frames = {};
   bridge.config = () => ({ newestFirst: true, expandAll: true, foldQuotes: true, latestOnly: true, inlineReply: true, loadId: 1 });
@@ -546,6 +553,9 @@ const key = (target, k, opts = {}) =>
   assert.equal(toggleOf(106), null, "Conversations' own fold stays");
   assert.ok(!hiddenText(107, "Inline intro") && hiddenText(107, "Short quote") && hiddenText(107, "On Monday") && !hiddenText(107, "Inline answer"),
     "only the quote box, answers after it stay");
+  assert.ok(!hiddenText(108, "New Outlook reply") && hiddenText(108, "Thuyen") && hiddenText(108, "Japanese original"), "new Outlook, header after a line");
+  assert.equal(frames[108].querySelector("hr").closest("[data-ol-quoted]").style.display, "none", "with its line");
+  assert.equal(toggleOf(109), null, "a plain line is not a quote");
   toggleOf(102).click();
   assert.ok(!hiddenText(102, "Outlook original"), "show quoted text");
   assert.equal(toggleOf(102).textContent, "- hide quoted text -");
@@ -632,10 +642,35 @@ const key = (target, k, opts = {}) =>
   assert.equal(kinds().filter((k) => k === "setHasRemoteContent 203").length, 8, "a click loads it again");
   assert.equal(liOf(203).getAttribute("data-ol-load"), "loading");
 
+  // 10b. Date order: Conversations appends a message that comes in later
+  // (here 74, a reply indexed after the conversation was shown) at the end
+  // of its list, whatever its date. The pane orders by date: 74 goes between
+  // 72 and 73, and 73 stays the newest.
+  const dates = { 71: 1000, 72: 2000, 73: 4000, 74: 3000 };
+  bridge.dateForConvId = (id) => dates[id] ?? null;
+  bridge.config = () => ({ newestFirst: true, latestOnly: true, inlineReply: true, loadId: 1 });
+  window.outlookModePane.configChanged();
+  showConversation([71, 72, 73, 74], [73]);
+  await wait(250);
+  const orderOf = (id) => document.querySelector(`message-header-options[msgid="${id}"]`).closest("li").style.order;
+  assert.deepEqual([71, 72, 74, 73].map(orderOf), ["0", "1", "2", "3"], "oldest 0 ... newest last");
+  const newest = [...document.querySelectorAll("li.message[data-ol-newest]")].map((li) => li.querySelector("message-header-options").getAttribute("msgid"));
+  assert.deepEqual(newest, ["73"], "the newest by date, not the last in the page");
+  assert.match(earlier().textContent, /Show 3 earlier messages/);
+  // A date not known yet: the page's order.
+  dates[75] = undefined;
+  showConversation([71, 72, 73, 75], [73]);
+  await wait(250);
+  assert.deepEqual([71, 72, 73, 75].map(orderOf), ["0", "1", "2", "3"]);
+  delete bridge.dateForConvId;
+
   // 11. destroy() cleans up.
   showConversation([41, 42], [42]);
   await wait(250);
+  assert.equal(document.querySelector("li.message[data-ol-newest] message-header-options").getAttribute("msgid"), "42");
   window.outlookModePane.destroy();
+  assert.equal(document.querySelector("li.message[data-ol-newest]"), null, "marks removed");
+  assert.equal(document.querySelector("li.message").style.order, "", "order removed");
   assert.equal(earlier(), null);
   assert.ok(!document.documentElement.hasAttribute("data-ol-latest-only"));
   assert.ok(!document.documentElement.hasAttribute("data-ol-attachments-top"));
