@@ -533,6 +533,64 @@
   }
 
   /* ---------------------------------------------------------------- */
+  /* Opened at the newest message                                      */
+  /* ---------------------------------------------------------------- */
+
+  // Conversations scrolls to the message it focuses when it shows a
+  // conversation (the one selected in the list, or the first unread one),
+  // and again once that message has loaded. With the newest message on top,
+  // that is somewhere down the conversation, often the last mail opened
+  // before. Those are its only window.scrollTo calls, so with newest first
+  // they go to the top of the conversation instead: the newest message, as
+  // in Outlook. Once the user scrolls, later calls of the same opening
+  // (SCROLL_BURST_MS apart at most: frames that finish loading) leave the
+  // page where the user put it. Another conversation shown in the page
+  // (syncConversation) starts at the top too.
+  const SCROLL_BURST_MS = 5000;
+  const pageScrollTo = window.scrollTo;
+  let lastAutoScroll = -Infinity;
+  let userScrolled = false;
+  let shownIds = [];
+
+  function showNewest() {
+    userScrolled = false;
+    lastAutoScroll = performance.now();
+    pageScrollTo.call(window, 0, 0);
+  }
+
+  if (!DOCK && typeof pageScrollTo === "function") {
+    const ownScrollTo = function (...args) {
+      if (!config.newestFirst) {
+        return pageScrollTo.apply(this, args);
+      }
+      const now = performance.now();
+      if (now - lastAutoScroll > SCROLL_BURST_MS) {
+        userScrolled = false; // another opening
+      }
+      lastAutoScroll = now;
+      if (!userScrolled) {
+        pageScrollTo.call(window, 0, 0);
+      }
+      return undefined;
+    };
+    window.scrollTo = ownScrollTo;
+    cleanups.push(() => {
+      if (window.scrollTo === ownScrollTo) {
+        window.scrollTo = pageScrollTo;
+      }
+    });
+    const SCROLL_KEYS = new Set(["ArrowUp", "ArrowDown", "PageUp", "PageDown", "Home", "End", " "]);
+    const noteUserScroll = (event) => {
+      if (event.type !== "keydown" || SCROLL_KEYS.has(event.key)) {
+        userScrolled = true;
+      }
+    };
+    for (const type of ["wheel", "keydown", "mousedown", "touchstart"]) {
+      listen(doc, type, noteUserScroll, { capture: true, passive: true });
+    }
+  }
+
+  /* ---------------------------------------------------------------- */
   /* Earlier messages                                                  */
   /* ---------------------------------------------------------------- */
 
@@ -2906,6 +2964,14 @@
   function syncConversation() {
     applyOrder();
     const ids = conversationIds();
+    if (!DOCK && ids.length && !ids.some((id) => shownIds.includes(id))) {
+      if (config.newestFirst) {
+        showNewest(); // another conversation
+      }
+    }
+    if (ids.length) {
+      shownIds = ids;
+    }
     expandMessages(ids);
     updateEarlier(ids);
     updatePinButtons();

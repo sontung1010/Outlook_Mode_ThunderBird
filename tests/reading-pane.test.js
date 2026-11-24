@@ -182,6 +182,11 @@ const type = (input, text) => {
 const key = (target, k, opts = {}) =>
   target.dispatchEvent(new window.KeyboardEvent("keydown", { key: k, bubbles: true, composed: true, cancelable: true, ...opts }));
 
+// Conversations scrolls with window.scrollTo (jsdom has none that works).
+const scrolls = [];
+const pageScrollTo = (x, y) => scrolls.push([x, y]);
+window.scrollTo = pageScrollTo;
+
 (async () => {
   showConversation([11, 12, 13]);
   window.eval(fs.readFileSync(PANE, "utf8"));
@@ -664,6 +669,34 @@ const key = (target, k, opts = {}) =>
   assert.deepEqual([71, 72, 73, 75].map(orderOf), ["0", "1", "2", "3"]);
   delete bridge.dateForConvId;
 
+  // 10c. A conversation opens at its newest message (the top), not where
+  // Conversations would scroll (the selected or first unread message, down
+  // the page); once the user scrolls, Conversations' later scrolls of that
+  // opening (a frame done loading) leave the page alone.
+  bridge.config = () => ({ newestFirst: true, inlineReply: true, loadId: 1 });
+  window.outlookModePane.configChanged();
+  scrolls.length = 0;
+  showConversation([81, 82, 83], [83]);
+  await wait(250);
+  assert.deepEqual(scrolls, [[0, 0]], "another conversation: to the top");
+  window.scrollTo(0, 900); // Conversations, to the selected message
+  assert.deepEqual(scrolls.at(-1), [0, 0], "Conversations' scroll goes to the top");
+  document.dispatchEvent(new window.WheelEvent("wheel", { bubbles: true }));
+  scrolls.length = 0;
+  window.scrollTo(0, 900); // its frame finished loading
+  assert.deepEqual(scrolls, [], "the user scrolled: left alone");
+  showConversation([84, 85], [85]);
+  await wait(250);
+  assert.deepEqual(scrolls, [[0, 0]], "the next conversation starts at the top again");
+  showConversation([84, 85, 86], [85]); // a message comes in: no jump
+  await wait(250);
+  assert.equal(scrolls.length, 1);
+  bridge.config = () => ({ newestFirst: false, inlineReply: true, loadId: 1 });
+  window.outlookModePane.configChanged();
+  scrolls.length = 0;
+  window.scrollTo(0, 900);
+  assert.deepEqual(scrolls, [[0, 900]], "oldest first: Conversations scrolls as it likes");
+
   // 11. destroy() cleans up.
   showConversation([41, 42], [42]);
   await wait(250);
@@ -671,6 +704,7 @@ const key = (target, k, opts = {}) =>
   window.outlookModePane.destroy();
   assert.equal(document.querySelector("li.message[data-ol-newest]"), null, "marks removed");
   assert.equal(document.querySelector("li.message").style.order, "", "order removed");
+  assert.equal(window.scrollTo, pageScrollTo, "page's scrollTo back");
   assert.equal(earlier(), null);
   assert.ok(!document.documentElement.hasAttribute("data-ol-latest-only"));
   assert.ok(!document.documentElement.hasAttribute("data-ol-attachments-top"));

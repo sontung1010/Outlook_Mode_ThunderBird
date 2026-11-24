@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "Outlook Mode",
-  "version": "3.9.38",
+  "version": "3.9.39",
   "description": "Outlook-style features for Thunderbird: inline reply in the reading pane with newest mail on top (with Thunderbird Conversations), new messages in a pane of the main window, pin button and refresh button in the message list, settings and contacts sync between devices, @mentions, @Mentioned-me tagging, Undo Send, Schedule send, pinned mail on top, Outlook reply/forward header, Quick Steps, Outlook shortcuts and history with a sender, new contacts in the company format (Name (Company-Department)), one notice when Microsoft's server is failing and one when it is back.",
   "author": "Tung",
   "browser_specific_settings": {
