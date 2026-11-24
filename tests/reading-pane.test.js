@@ -697,6 +697,43 @@ window.scrollTo = pageScrollTo;
   window.scrollTo(0, 900);
   assert.deepEqual(scrolls, [[0, 900]], "oldest first: Conversations scrolls as it likes");
 
+  // 10d. The toolbar's save button: every message of the conversation, in
+  // date order, to the experiment (which checks and saves them).
+  const convHeader = document.createElement("conversation-header");
+  const actions = document.createElement("conv-actions-buttons");
+  convHeader.attachShadow({ mode: "open" }).append(actions);
+  const bar = actions.attachShadow({ mode: "open" });
+  for (const name of ["expand", "archive", "trash"]) {
+    const b = document.createElement("button");
+    b.className = `button-flat actions-button ${name}`;
+    bar.append(b);
+  }
+  document.body.prepend(convHeader);
+  const saveCalls = [];
+  bridge.saveConversation = async (ids) => {
+    saveCalls.push(ids);
+    return { saved: ids.length, file: "/home/me/Mail/Plan - 2026-11-24.eml" };
+  };
+  bridge.dateForConvId = (id) => ({ 91: 1000, 92: 3000, 93: 2000 })[id] ?? null;
+  showConversation([91, 92, 93], [92]);
+  await wait(250);
+  const saveButton = bar.querySelector(".ol-save");
+  assert.ok(saveButton, "save button added");
+  assert.equal(saveButton.nextElementSibling.classList.contains("archive"), true, "before Archive");
+  assert.equal(saveButton.querySelector("svg-icon").getAttribute("hash"), "save_alt");
+  saveButton.click();
+  await wait(20);
+  assert.deepEqual(saveCalls, [[91, 93, 92]], "all messages, oldest first");
+  assert.match(document.getElementById("ol-toast").textContent, /Saved the conversation \(3 messages\) to \/home\/me\/Mail\/Plan - 2026-11-24\.eml/);
+  showConversation([91, 92, 93], [92]);
+  await wait(250);
+  assert.equal(bar.querySelectorAll(".ol-save").length, 1, "added once");
+  bridge.saveConversation = async () => ({ saved: 0, file: "" }); // cancelled
+  saveButton.click();
+  await wait(20);
+  assert.ok(!document.getElementById("ol-toast").classList.contains("ol-visible"), "cancelled: the Saving… notice goes");
+  delete bridge.dateForConvId;
+
   // 11. destroy() cleans up.
   showConversation([41, 42], [42]);
   await wait(250);
@@ -705,6 +742,7 @@ window.scrollTo = pageScrollTo;
   assert.equal(document.querySelector("li.message[data-ol-newest]"), null, "marks removed");
   assert.equal(document.querySelector("li.message").style.order, "", "order removed");
   assert.equal(window.scrollTo, pageScrollTo, "page's scrollTo back");
+  assert.equal(bar.querySelector(".ol-save"), null, "save button removed");
   assert.equal(earlier(), null);
   assert.ok(!document.documentElement.hasAttribute("data-ol-latest-only"));
   assert.ok(!document.documentElement.hasAttribute("data-ol-attachments-top"));

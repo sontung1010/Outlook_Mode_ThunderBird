@@ -299,6 +299,7 @@
     root.toggleAttribute("data-ol-outlook-header", Boolean(config.outlookHeader));
     root.toggleAttribute("data-ol-attachments-top", Boolean(config.attachmentsTop));
     updatePinButtons();
+    updateSaveButton();
     updateHeaders();
     updateMessageFrames();
     updateQuoteFolds();
@@ -1114,6 +1115,61 @@
       if (info) {
         header.after(buildRecipients(info, convId));
       }
+    }
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* Save the conversation as .eml files                               */
+  /* ---------------------------------------------------------------- */
+
+  // A button in Conversations' toolbar of the conversation (next to Archive
+  // and Delete) saves the whole conversation, your replies in Sent Items
+  // included, as one .eml file ("<subject> - <today>.eml") whose text is the
+  // conversation, newest first. The experiment checks that the messages
+  // belong to the conversation shown, and builds the file.
+  let saving = false;
+
+  function saveToolbar() {
+    const header = doc.querySelector("conversation-header");
+    return header?.shadowRoot?.querySelector("conv-actions-buttons")?.shadowRoot || null;
+  }
+
+  function updateSaveButton() {
+    const bar = saveToolbar();
+    if (!bar || bar.querySelector(".ol-save") || typeof bridge.saveConversation !== "function") {
+      return;
+    }
+    const icon = doc.createElement("svg-icon");
+    icon.setAttribute("aria-hidden", "true");
+    icon.setAttribute("hash", "save_alt");
+    const button = el("button", {
+      class: "button-flat actions-button ol-save",
+      title: "Save the conversation as one .eml file",
+      onclick: saveConversation,
+    }, icon);
+    button.setAttribute("aria-label", "Save the conversation as one .eml file");
+    bar.insertBefore(button, bar.querySelector(".archive") || null);
+  }
+
+  async function saveConversation(event) {
+    event?.preventDefault();
+    const ids = conversationIds();
+    if (saving || !ids.length) {
+      return;
+    }
+    saving = true;
+    toast("Saving the conversation…");
+    try {
+      const result = await bridge.saveConversation(ids);
+      if (result && result.saved) {
+        toast(`Saved the conversation (${result.saved} message${result.saved === 1 ? "" : "s"})${result.file ? ` to ${result.file}` : ""}.`);
+      } else {
+        doc.getElementById("ol-toast")?.classList.remove("ol-visible"); // cancelled
+      }
+    } catch (error) {
+      toast(`Could not save the conversation: ${errorText(error)}`, true);
+    } finally {
+      saving = false;
     }
   }
 
@@ -2975,6 +3031,7 @@
     expandMessages(ids);
     updateEarlier(ids);
     updatePinButtons();
+    updateSaveButton();
     updateHeaders();
     updateMessageFrames();
     updatePictureFit();
@@ -3042,6 +3099,7 @@
     }
     blobUrls.clear();
     earlierButton?.remove();
+    saveToolbar()?.querySelector(".ol-save")?.remove();
     clearOrder();
     for (const li of doc.querySelectorAll("li.message[data-ol-load]")) {
       li.removeAttribute("data-ol-load");

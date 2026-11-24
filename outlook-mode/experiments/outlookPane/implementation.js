@@ -1299,6 +1299,46 @@ const paneBridge = {
       hdr && shown && shown.some((selected) => selected == hdr || sameThread(selected, hdr) || selected.messageId == hdr.messageId)
     );
   },
+  // Saves the conversation this page shows as one .eml file, at a place
+  // the user picks ("<subject> - <today>.eml"): a summary of its messages
+  // (date, sender, subject; newest first), then every message in full as an
+  // attached message (message/rfc822), oldest first. Thunderbird shows them
+  // all in the message; Outlook shows the summary and each as an attachment.
+  // Only messages of that conversation are saved: in the selected thread, or
+  // linked to it by Message-ID and References (your replies in Sent Items).
+  // Returns { saved, file } (saved 0: cancelled or nothing to save).
+  async saveConversation(convIds) {
+    const shown = this.shownConversation();
+    const about3Pane = this.page?.browsingContext?.embedderElement?.ownerDocument?.defaultView;
+    if (!shown || !about3Pane || !Array.isArray(convIds)) {
+      return { saved: 0, file: "" };
+    }
+    const seen = new Set();
+    const hdrs = [];
+    for (const id of convIds) {
+      const hdr = hdrFromUri(this.uriForConvId(id));
+      if (hdr && !seen.has(hdr.messageId) && (this.isShown(hdr) || paneRelated(hdr, shown))) {
+        seen.add(hdr.messageId);
+        hdrs.push(hdr);
+      }
+    }
+    if (!hdrs.length) {
+      return { saved: 0, file: "" };
+    }
+    hdrs.sort((a, b) => a.date - b.date);
+    const subject = paneThreadSubject(hdrs);
+    const now = new Date();
+    const path = await paneAskSavePath(about3Pane.browsingContext, paneConversationFileName(subject, now));
+    if (!path) {
+      return { saved: 0, file: "" };
+    }
+    const raws = [];
+    for (const hdr of hdrs) {
+      raws.push(await paneMessageBytes(uriOfHdr(hdr)));
+    }
+    await IOUtils.write(path, await paneConversationEml(hdrs, raws, subject, now));
+    return { saved: hdrs.length, file: path };
+  },
   // The mail selected in the list of the mail tab this page is in (one row:
   // one conversation), or null.
   shownConversation() {
@@ -1311,6 +1351,538 @@ const paneBridge = {
     return hdrs.length ? hdrs : null;
   },
 };
+
+// Whether a message belongs to the same conversation as one of the given
+// ones by Message-ID and References (a reply in another folder, e.g. Sent
+// Items).
+function paneRelated(hdr, others) {
+  const ids = (h) => {
+    const set = new Set([h.messageId]);
+    for (let i = 0; i < h.numReferences; i++) {
+      set.add(h.getStringReference(i));
+    }
+    set.delete("");
+    return set;
+  };
+  const mine = ids(hdr);
+  return others.some((other) => [...ids(other)].some((id) => mine.has(id)));
+}
+
+/* ------------------------------------------------------------------ */
+/* A conversation as one .eml file                                     */
+/* ------------------------------------------------------------------ */
+
+const PANE_SUBJECT_PREFIX = /^\s*((re|fw|fwd|aw|wg|tr|sv|vs|rv|antw|ynt|trả lời|chuyển tiếp|回复|答复|转发|返信|転送)\s*(\[\d+\])?\s*[:：]\s*)+/i;
+
+// The conversation's subject: its oldest message's, without Re: / Fw:.
+function paneThreadSubject(hdrs) {
+  const subject = hdrs.map((hdr) => hdr.mime2DecodedSubject || "").find(Boolean) || "";
+  return subject.replace(PANE_SUBJECT_PREFIX, "").trim() || "(no subject)";
+}
+
+function paneFileSafe(text, max = 150) {
+  return String(text)
+    .replace(/[\\/:*?"<>|\u0000-\u001f\u007f]+/g, "_")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, max)
+    .replace(/[. ]+$/, "");
+}
+
+// "<subject> - 2026-11-24.eml" (the day it is saved).
+function paneConversationFileName(subject, now) {
+  const pad = (n) => String(n).padStart(2, "0");
+  const day = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+  return `${paneFileSafe(subject, 180) || "Conversation"} - ${day}.eml`;
+}
+
+// Thunderbird's file picker in save mode, in the folder last used to save
+// mail. Returns the path, or "" when cancelled.
+async function paneAskSavePath(browsingContext, name) {
+  const fp = Cc["@mozilla.org/filepicker;1"].createInstance(Ci.nsIFilePicker);
+  fp.init(browsingContext, "Save the conversation", Ci.nsIFilePicker.modeSave);
+  fp.defaultString = name;
+  fp.defaultExtension = "eml";
+  fp.appendFilter("Mail (*.eml)", "*.eml");
+  fp.appendFilters(Ci.nsIFilePicker.filterAll);
+  try {
+    fp.displayDirectory = Services.prefs.getComplexValue("messenger.save.dir", Ci.nsIFile);
+  } catch (error) {
+    // not set yet
+  }
+  const result = await new Promise((resolve) => fp.open(resolve));
+  if (result == Ci.nsIFilePicker.returnCancel || !fp.file) {
+    return "";
+  }
+  try {
+    Services.prefs.setComplexValue("messenger.save.dir", Ci.nsIFile, fp.file.parent);
+  } catch (error) {
+    // remembering the folder is not needed
+  }
+  return /\.eml$/i.test(fp.file.path) ? fp.file.path : `${fp.file.path}.eml`;
+}
+
+// UTF-8 bytes of a string. The experiment scope has no TextEncoder (and
+// one of a window would make arrays of that window).
+function paneUtf8(text) {
+  const out = [];
+  for (const char of String(text)) {
+    let code = char.codePointAt(0);
+    if (code >= 0xd800 && code <= 0xdfff) {
+      code = 0xfffd; // a lone surrogate, as TextEncoder does
+    }
+    if (code < 0x80) {
+      out.push(code);
+    } else if (code < 0x800) {
+      out.push(0xc0 | (code >> 6), 0x80 | (code & 63));
+    } else if (code < 0x10000) {
+      out.push(0xe0 | (code >> 12), 0x80 | ((code >> 6) & 63), 0x80 | (code & 63));
+    } else {
+      out.push(0xf0 | (code >> 18), 0x80 | ((code >> 12) & 63), 0x80 | ((code >> 6) & 63), 0x80 | (code & 63));
+    }
+  }
+  return new Uint8Array(out);
+}
+
+// A message as it is stored (downloaded first if needed), through
+// Thunderbird's own "save as .eml" into a temporary file that is removed.
+async function paneMessageBytes(uri) {
+  const { MessageSaver } = ChromeUtils.importESModule("moz-src:///comm/mail/modules/MessageSaver.sys.mjs");
+  const temp = Services.dirsvc.get("TmpD", Ci.nsIFile);
+  temp.append("outlookmode-message.eml");
+  temp.createUnique(Ci.nsIFile.NORMAL_FILE_TYPE, 0o600);
+  const path = temp.path;
+  try {
+    await MessageSaver.saveToFile(uri, path, "eml");
+    let bytes = await IOUtils.read(path);
+    // An mbox envelope line ("From - ...") is not part of the message.
+    if (bytes.length > 5 && String.fromCharCode(...bytes.subarray(0, 5)) == "From ") {
+      const end = bytes.indexOf(10);
+      bytes = end >= 0 ? bytes.subarray(end + 1) : bytes;
+    }
+    return bytes;
+  } finally {
+    await IOUtils.remove(path, { ignoreAbsent: true }).catch(() => {});
+  }
+}
+
+// Header text, RFC 2047 encoded when not plain ASCII. fold: false keeps
+// the encoded words on one line (inside a quoted parameter).
+function paneEncodeHeader(text, fold = true) {
+  text = String(text || "").replace(/[\r\n]+/g, " ");
+  if (/^[\x20-\x7e]*$/.test(text)) {
+    return text;
+  }
+  const words = [];
+  let chunk = "";
+  for (const char of text) {
+    if (paneUtf8(chunk + char).length > 45) {
+      words.push(chunk);
+      chunk = "";
+    }
+    chunk += char;
+  }
+  words.push(chunk);
+  return words.map((word) => `=?UTF-8?B?${paneBase64(paneUtf8(word))}?=`).join(fold ? "\r\n " : " ");
+}
+
+function paneWrap76(text) {
+  return text.replace(/.{1,76}/g, "$&\r\n");
+}
+
+// A stored message, parsed with Thunderbird's MIME parser: its headers, its
+// text as HTML, its pictures by Content-ID and its attachments. A message
+// attached to it is kept whole, as one attachment (decodeSubMessages off).
+function paneParseMessage(raw) {
+  const { MimeParser } = ChromeUtils.importESModule("resource:///modules/mimeParser.sys.mjs");
+  let binary = "";
+  for (let i = 0; i < raw.length; i += 0x8000) {
+    binary += String.fromCharCode(...raw.subarray(i, i + 0x8000));
+  }
+  const parts = new Map(); // part number -> { headers, chunks }
+  let top = null;
+  MimeParser.parseSync(
+    binary,
+    {
+      startPart(partNum, headers) {
+        if (partNum === "") {
+          top = headers;
+        }
+        parts.set(partNum, { partNum, headers, chunks: [] });
+      },
+      deliverPartData(partNum, data) {
+        parts.get(partNum)?.chunks.push(data);
+      },
+    },
+    { bodyformat: "decode", strformat: "unicode", decodeSubMessages: false }
+  );
+  const message = { headers: top, html: "", text: "", images: new Map(), attachments: [] };
+  for (const part of parts.values()) {
+    const { partNum, headers } = part;
+    const type = headers.contentType || { mediatype: "text", subtype: "plain", type: "text/plain", get: () => "" };
+    if (type.mediatype == "multipart") {
+      continue;
+    }
+    const disposition = String(headers.get("content-disposition") || "");
+    const isAttachment = /^\s*attachment/i.test(disposition);
+    const name =
+      MimeParser.getParameter(disposition, "filename") || (type.get && type.get("name")) || "";
+    const join = () =>
+      typeof part.chunks[0] == "string" ? part.chunks.join("") : paneConcat(part.chunks);
+    if (type.mediatype == "message" && partNum !== "") {
+      // Named after its own subject when it has no file name.
+      const data = paneBytesOf(join());
+      let title = name;
+      if (!title) {
+        try {
+          let head = "";
+          for (let i = 0; i < Math.min(data.length, 65536); i += 0x8000) {
+            head += String.fromCharCode(...data.subarray(i, Math.min(i + 0x8000, 65536)));
+          }
+          const subject = MimeParser.extractHeaders(head).get("Subject");
+          title = subject ? `${paneFileSafe(subject, 120)}.eml` : "";
+        } catch (error) {
+          // no usable subject
+        }
+      }
+      message.attachments.push({ type: type.type, name: title || "message.eml", data });
+      continue;
+    }
+    const cid = String(headers.get("content-id") || "").replace(/^\s*<|>\s*$/g, "");
+    if (!isAttachment && type.type == "text/html" && !message.html) {
+      message.html = join();
+    } else if (!isAttachment && type.type == "text/plain" && !message.text && !name) {
+      message.text = join();
+    } else if (cid && !isAttachment) {
+      message.images.set(cid, { type: type.type, name, data: paneBytesOf(join()) });
+    } else if (partNum !== "") {
+      message.attachments.push({ type: type.type, name: name || "attachment", data: paneBytesOf(join()) });
+    }
+  }
+  return message;
+}
+
+function paneConcat(chunks) {
+  const total = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+  const out = new Uint8Array(total);
+  let at = 0;
+  for (const chunk of chunks) {
+    out.set(chunk, at);
+    at += chunk.length;
+  }
+  return out;
+}
+
+// Bytes of a part: text parts come as strings (Unicode), others as bytes.
+function paneBytesOf(data) {
+  return typeof data == "string" ? paneUtf8(data) : data;
+}
+
+// The first line of Outlook's quoted header ("From:" in the mail's language).
+const PANE_FROM_LABEL = /^\s*(From|Từ|De|Von|Da|Van|Od|От|Från|Fra|Kimden|发件人|發件人|寄件者|差出人|보낸 사람)\s*[:：]/;
+
+// Where the earlier mail a message quotes starts, as in the reading pane
+// (reading-pane/pane.js, quoteStart): [node, toEnd] or null.
+function paneQuoteStart(doc) {
+  const body = doc.body;
+  const found = [];
+  for (const sel of ["#appendonsend", "#divRplyFwdMsg"]) {
+    const node = body.querySelector(sel);
+    if (node) {
+      found.push([node, true]);
+    }
+  }
+  const header = [...body.querySelectorAll("div[style*='border-top']")].find((node) => PANE_FROM_LABEL.test(node.textContent));
+  if (header) {
+    found.push([header, true]);
+  }
+  const rule = [...body.querySelectorAll("hr")].find(
+    (node) => node.nextElementSibling && PANE_FROM_LABEL.test(node.nextElementSibling.textContent)
+  );
+  if (rule) {
+    found.push([rule, true]);
+  }
+  for (const sel of [".gmail_quote", ".yahoo_quoted", ".moz-cite-prefix", ".moz-forward-container", "blockquote[type='cite']"]) {
+    const node = body.querySelector(sel);
+    if (node) {
+      found.push([node, false]);
+    }
+  }
+  found.sort(([a], [b]) => (a === b ? 0 : a.compareDocumentPosition(b) & 4 ? -1 : 1));
+  return found[0] || null;
+}
+
+// A message's own part as HTML: its text without the earlier mail it quotes
+// (keepQuote: the oldest message keeps it), without scripts, frames, forms
+// or event handlers, its pictures renamed to `${prefix}-...` Content-IDs.
+// Returns { html, styles, cids } (cids: original Content-IDs still shown).
+function paneOwnPart(message, keepQuote, prefix) {
+  let html = message.html;
+  if (!html) {
+    const text = keepQuote ? message.text || "" : paneOwnText(message.text || "");
+    html = `<pre style="white-space: pre-wrap; font-family: inherit;">${paneEscape(text)}</pre>`;
+  }
+  const doc = paneParseHtml(html);
+  for (const node of doc.querySelectorAll("script, iframe, frame, frameset, object, embed, form, base, meta, link, title")) {
+    node.remove();
+  }
+  if (!keepQuote) {
+    const start = paneQuoteStart(doc);
+    if (start) {
+      const [node, toEnd] = start;
+      const range = doc.createRange();
+      range.setStart(doc.body, 0);
+      range.setEndBefore(node);
+      const own = range.toString().trim() || range.cloneContents().querySelector("img");
+      if (own) {
+        // A forward with no text of its own keeps what it forwards.
+        if (toEnd) {
+          const cut = doc.createRange();
+          cut.setStartBefore(node);
+          cut.setEndAfter(doc.body.lastChild);
+          cut.deleteContents();
+        } else {
+          const last = node.matches(".moz-cite-prefix") && node.nextElementSibling ? node.nextElementSibling : node;
+          const cut = doc.createRange();
+          cut.setStartBefore(node);
+          cut.setEndAfter(last);
+          cut.deleteContents();
+        }
+      }
+    }
+  }
+  const styles = [...doc.querySelectorAll("style")].map((node) => {
+    const css = node.textContent;
+    node.remove();
+    return css;
+  });
+  const cids = new Set();
+  for (const node of doc.querySelectorAll("*")) {
+    for (const attr of [...node.attributes]) {
+      const value = attr.value.trim();
+      if (/^on/i.test(attr.name) || /^\s*(javascript|vbscript):/i.test(value)) {
+        node.removeAttribute(attr.name);
+      } else if (/^cid:/i.test(value) && ["src", "background", "href"].includes(attr.name.toLowerCase())) {
+        const cid = decodeURIComponent(value.slice(4));
+        if (message.images.has(cid)) {
+          cids.add(cid);
+          node.setAttribute(attr.name, `cid:${prefix}-${cid}`);
+        }
+      }
+    }
+  }
+  return { html: doc.body.innerHTML, styles, cids };
+}
+
+// Plain text without the earlier mail it quotes: from Outlook's underscore
+// line followed by "From:", or a closing block of "> " lines with the
+// "... wrote:" line above it. Text that is nothing but a quote stays.
+function paneOwnText(text) {
+  let own = text;
+  const outlook = /^[ \t]*_{20,}[ \t]*\r?\n(?=[ \t]*\S)/m.exec(text);
+  if (outlook && PANE_FROM_LABEL.test(text.slice(outlook.index + outlook[0].length))) {
+    own = text.slice(0, outlook.index);
+  } else {
+    const quoted = /(?:^.*(?:wrote|viết|schrieb|écrit|escribió):[ \t]*\r?\n)?(?:^>.*(?:\r?\n|(?![\s\S]))|^[ \t]*\r?\n)*(?![\s\S])/im.exec(text);
+    if (quoted && quoted[0].includes(">")) {
+      own = text.slice(0, quoted.index);
+    }
+  }
+  return own.trim() ? own.replace(/\s+$/, "") : text;
+}
+
+function paneAddressText(list) {
+  const flat = [];
+  for (const item of list || []) {
+    if (item.group) {
+      flat.push(...item.group);
+    } else {
+      flat.push(item);
+    }
+  }
+  return flat.map((a) => (a.name ? `${a.name} <${a.email}>` : a.email)).join("; ");
+}
+
+// A part of the .eml file: headers, then the data in base64.
+function panePartBytes(headerLines, data) {
+  return [paneUtf8(`${headerLines.join("\r\n")}\r\nContent-Transfer-Encoding: base64\r\n\r\n`), paneUtf8(paneWrap76(paneBase64(data)))];
+}
+
+function paneNameParams(name) {
+  return `name="${paneEncodeHeader(name, false)}"`;
+}
+
+function paneDispositionParams(kind, name) {
+  return `${kind}; filename="${paneEncodeHeader(name, false)}"; filename*=UTF-8''${encodeURIComponent(name)}`;
+}
+
+// The .eml file: the whole conversation as the message's own text, newest
+// first, each message under an Outlook-style header (From, Sent, To, Cc,
+// Subject) and without the earlier mail it quotes (the oldest keeps its
+// quote), with the pictures it shows; then the messages' attachments (the
+// same file once).
+//   multipart/mixed
+//     multipart/related: text/html + pictures (Content-ID)
+//     attachments
+async function paneConversationEml(hdrs, raws, subject, now) {
+  const boundary = `----=_OutlookMode_${Date.now().toString(36)}_${Math.random().toString(36).slice(2)}`;
+  const related = `${boundary}_rel`;
+  let from = "";
+  try {
+    const identity = MailServices.accounts.getFirstIdentityForServer(hdrs[0].folder.server);
+    // Only the name is encoded; the address stays as it is.
+    const name = identity && identity.fullName ? identity.fullName : "";
+    from = !identity
+      ? ""
+      : /^[\x20-\x7e]*$/.test(name)
+        ? MailServices.headerParser.makeMimeAddress(name, identity.email)
+        : `${paneEncodeHeader(name)} <${identity.email}>`;
+  } catch (error) {
+    // no From line
+  }
+
+  const sections = [];
+  const styles = new Set();
+  const pictures = [];
+  const attachments = [];
+  const seenFiles = new Set();
+  const usedNames = new Set();
+  for (let index = hdrs.length - 1; index >= 0; index--) {
+    // Newest first; a pause between messages keeps Thunderbird responsive.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const hdr = hdrs[index];
+    let message;
+    try {
+      message = paneParseMessage(raws[index]);
+    } catch (error) {
+      paneNote("save: parse message", error);
+      message = { headers: null, html: "", text: "(This message could not be read.)", images: new Map(), attachments: [] };
+    }
+    const prefix = `m${index + 1}`;
+    const own = paneOwnPart(message, index === 0, prefix);
+    own.styles.forEach((css) => styles.add(css));
+    for (const cid of own.cids) {
+      const image = message.images.get(cid);
+      pictures.push({ cid: `${prefix}-${cid}`, ...image });
+    }
+    for (const attachment of message.attachments) {
+      const key = `${attachment.name}\u0000${attachment.data.length}`;
+      if (!seenFiles.has(key)) {
+        seenFiles.add(key);
+        // Different files of the same name: "name (2).ext".
+        let name = attachment.name;
+        const dot = name.lastIndexOf(".");
+        const [stem, ext] = dot > 0 ? [name.slice(0, dot), name.slice(dot)] : [name, ""];
+        for (let n = 2; usedNames.has(name.toLowerCase()); n++) {
+          name = `${stem} (${n})${ext}`;
+        }
+        usedNames.add(name.toLowerCase());
+        attachments.push({ ...attachment, name });
+      }
+    }
+    const headers = message.headers;
+    const get = (name) => {
+      try {
+        return headers ? headers.get(name) : null;
+      } catch (error) {
+        return null;
+      }
+    };
+    const fromText = paneAddressText(get("From")) || hdr.mime2DecodedAuthor || "";
+    const toText = paneAddressText(get("To"));
+    const ccText = paneAddressText(get("Cc"));
+    const line = (label, value) => (value ? `<b>${label}:</b> ${paneEscape(value)}<br>` : "");
+    sections.push(
+      '<div style="border:none;border-top:solid #E1E1E1 1.0pt;padding:6pt 0 0 0;margin:18pt 0 8pt 0">' +
+        '<p style="margin:0 0 8pt 0;font-size:11pt">' +
+        line("From", fromText) +
+        line("Sent", paneOutlookDate(new Date(hdr.date / 1000))) +
+        line("To", toText) +
+        line("Cc", ccText) +
+        line("Subject", hdr.flags & Ci.nsMsgMessageFlags.HasRe ? `RE: ${hdr.mime2DecodedSubject}` : hdr.mime2DecodedSubject) +
+        "</p></div>" +
+        `<div>${own.html}</div>`
+    );
+  }
+
+  const html =
+    '<!DOCTYPE html><html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">' +
+    [...styles].map((css) => `<style>${css}</style>`).join("") +
+    "</head>" +
+    `<body style="font-family: ${paneEscape(PANE_DEFAULT_FONT)}; font-size: 11pt;">` +
+    `<p style="font-size:14pt;margin:0"><b>${paneEscape(subject)}</b></p>` +
+    `<p style="color:#666;margin:2pt 0 0 0">${hdrs.length} message${hdrs.length == 1 ? "" : "s"}, newest first. Saved ${paneEscape(paneOutlookDate(now))}.</p>` +
+    sections.join("") +
+    "</body></html>";
+
+  const out = [
+    paneUtf8(
+      [
+        from ? `From: ${from}` : "",
+        `Subject: ${paneEncodeHeader(subject)}`,
+        `Date: ${now.toUTCString().replace("GMT", "+0000")}`,
+        "MIME-Version: 1.0",
+        "X-Outlook-Mode: conversation saved from Thunderbird",
+        `Content-Type: multipart/mixed; boundary="${boundary}"`,
+        "",
+        "This is a conversation saved as one message.",
+        "",
+        `--${boundary}`,
+        `Content-Type: multipart/related; type="text/html"; boundary="${related}"`,
+        "",
+        `--${related}`,
+        "",
+      ]
+        .filter((text, index) => text || index > 0)
+        .join("\r\n")
+    ),
+  ];
+  out.push(...panePartBytes(["Content-Type: text/html; charset=UTF-8"], paneUtf8(html)));
+  for (const picture of pictures) {
+    out.push(paneUtf8(`\r\n--${related}\r\n`));
+    out.push(
+      ...panePartBytes(
+        [
+          `Content-Type: ${picture.type || "application/octet-stream"}${picture.name ? `; ${paneNameParams(picture.name)}` : ""}`,
+          `Content-ID: <${picture.cid}>`,
+          picture.name ? `Content-Disposition: ${paneDispositionParams("inline", picture.name)}` : "Content-Disposition: inline",
+        ],
+        picture.data
+      )
+    );
+  }
+  out.push(paneUtf8(`\r\n--${related}--\r\n`));
+  for (const attachment of attachments) {
+    out.push(paneUtf8(`\r\n--${boundary}\r\n`));
+    if (/^message\//i.test(attachment.type)) {
+      // An attached mail goes in as it is: MIME allows no base64 there.
+      const eightBit = attachment.data.some((byte) => byte > 127);
+      out.push(
+        paneUtf8(
+          `Content-Type: ${attachment.type}; ${paneNameParams(attachment.name)}\r\n` +
+            `Content-Transfer-Encoding: ${eightBit ? "8bit" : "7bit"}\r\n` +
+            `Content-Disposition: ${paneDispositionParams("attachment", attachment.name)}\r\n\r\n`
+        ),
+        attachment.data
+      );
+      if (attachment.data.length && attachment.data[attachment.data.length - 1] != 10) {
+        out.push(paneUtf8("\r\n"));
+      }
+      continue;
+    }
+    out.push(
+      ...panePartBytes(
+        [
+          `Content-Type: ${attachment.type || "application/octet-stream"}; ${paneNameParams(attachment.name)}`,
+          `Content-Disposition: ${paneDispositionParams("attachment", attachment.name)}`,
+        ],
+        attachment.data
+      )
+    );
+  }
+  out.push(paneUtf8(`\r\n--${boundary}--\r\n`));
+  return paneConcat(out);
+}
 
 // Whether two messages are in the same thread of the same folder.
 function sameThread(a, b) {

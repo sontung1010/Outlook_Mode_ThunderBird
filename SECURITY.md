@@ -1,6 +1,6 @@
 # Outlook Mode add-on: security notes
 
-What the **Outlook Mode** Thunderbird add-on (version **3.9.39**) does with the network, your credentials and your data. Every statement below was checked against the package.
+What the **Outlook Mode** Thunderbird add-on (version **3.9.43**) does with the network, your credentials and your data. Every statement below was checked against the package.
 
 ## 1. Identification
 
@@ -8,9 +8,9 @@ What the **Outlook Mode** Thunderbird add-on (version **3.9.39**) does with the 
 | --- | --- |
 | Name | Outlook Mode |
 | Add-on ID | `outlook-mention@tung.local` |
-| Version | 3.9.39 |
-| File | `outlook-mode.xpi` (217,252 bytes) |
-| SHA-256 | `dfd51b46153fc77807896323b29ec475218ce8219baac9647d29e28b6c0807b3` |
+| Version | 3.9.43 |
+| File | `outlook-mode.xpi` (225,360 bytes) |
+| SHA-256 | `03bd4cf4cf2caa4e5ec7cecefb82b8e67a85721c27c1b977bba1fc5efce9bb0c` |
 | Source | The package is a plain zip of the add-on's source files and its `LICENSE`. Unzip it to read the code. |
 | License | MIT (see `LICENSE`). |
 | Code | About 18,700 lines of plain, unminified JavaScript, HTML and CSS written for this add-on. No bundled third-party libraries. |
@@ -224,6 +224,8 @@ The add-on also changes Thunderbird's own data, all of it local:
 Diagnostics (recent errors) are kept only in memory and shown on the Preferences page.
 
 ## 8. Actions on mail
+
+**Saving a conversation (3.9.40; one file since 3.9.41; the conversation as its text since 3.9.43).** The reading pane's ⤓ button saves the conversation shown as one `.eml` file, only when the user clicks it, at a place the user picks in Thunderbird's own file picker (which asks before replacing a file). Each message is read as stored through Thunderbird's own `MessageSaver.saveToFile` into a temporary file created in the system temp folder (unique name, readable only by the user), which is removed right after, and parsed with Thunderbird's own MIME parser. The file written has the conversation as its HTML text (newest first, each message under an Outlook-style header, without the earlier mail it quotes), with scripts, frames, forms, event-handler attributes and `javascript:` URLs removed; the pictures it shows; and the messages' attachments, unchanged. The experiment saves only messages of the conversation selected in the message list (its thread, or linked to it by Message-ID / References, such as replies in Sent Items); ids of other messages sent by the page are ignored. The file name is the subject and the date, with characters that are not allowed in file names replaced. Nothing is sent anywhere.
 
 Mail is sent, moved or deleted only on user action, with one exception (second copies of sent mail, below):
 
