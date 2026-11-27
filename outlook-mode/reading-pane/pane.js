@@ -1458,7 +1458,8 @@
       c.editor.append(el("div", {}, el("br")), el("div", {}, el("br")));
       swapSignature(c);
     }
-    c.editor.addEventListener("input", () => {
+    c.editor.addEventListener("input", (event) => {
+      autoList(c, event);
       applyFontSize(c);
       liveImages(c.editor);
       markDirty(c);
@@ -2115,6 +2116,12 @@
       event.stopPropagation();
       return;
     }
+    if (event.key === "Tab" && !accel && !event.altKey && c.editor.contains(event.target)) {
+      event.preventDefault();
+      event.stopPropagation();
+      tabInText(c, event.shiftKey);
+      return;
+    }
     if (accel && key === "enter") {
       event.preventDefault();
       send(c);
@@ -2151,6 +2158,87 @@
     }
     // Typing here must not reach Conversations' or Thunderbird's shortcuts.
     event.stopPropagation();
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* Tab, and lists started by typing, as in Outlook                   */
+  /* ---------------------------------------------------------------- */
+
+  // Without this, Tab left the text for the next control of the page.
+  // - In a bulleted or numbered list: the item goes one level in (a list
+  //   inside the list); Shift+Tab one level out, and out of the list at the
+  //   first level.
+  // - Elsewhere, with the caret at the start of a paragraph or several
+  //   paragraphs selected: the paragraphs are indented (Shift+Tab: back).
+  // - Otherwise a tab is typed: four spaces that do not collapse, which every
+  //   mail program shows the same way.
+  const TAB_TEXT = "\u00a0\u00a0\u00a0\u00a0";
+  const BLOCKS = "div, p, li, h1, h2, h3, h4, h5, h6, blockquote, pre, td, th";
+
+  function blockOf(c, node) {
+    const element = node && (node.nodeType === 1 ? node : node.parentElement);
+    const block = element && element.closest(BLOCKS);
+    return block && block !== c.editor && c.editor.contains(block) ? block : c.editor;
+  }
+
+  // The text of the caret's paragraph before the caret.
+  function textBeforeCaret(c, range) {
+    const before = doc.createRange();
+    before.setStart(blockOf(c, range.startContainer), 0);
+    before.setEnd(range.startContainer, range.startOffset);
+    return before;
+  }
+
+  function tabInText(c, back) {
+    const selection = window.getSelection();
+    if (!selection.rangeCount || !c.editor.contains(selection.getRangeAt(0).commonAncestorContainer)) {
+      return;
+    }
+    const range = selection.getRangeAt(0);
+    saveSelection(c);
+    const start = blockOf(c, range.startContainer);
+    const end = blockOf(c, range.endContainer);
+    const item = start.closest("li");
+    if (item && c.editor.contains(item)) {
+      exec(c, back ? "outdent" : "indent");
+    } else if (back) {
+      exec(c, "outdent", null, true);
+    } else if (start !== end || !textBeforeCaret(c, range).toString().replace(/[\s\u00a0]/g, "")) {
+      exec(c, "indent", null, true);
+    } else {
+      restoreSelection(c);
+      doc.execCommand("insertText", false, TAB_TEXT);
+      markDirty(c);
+    }
+  }
+
+  // "- ", "* " or "• " typed at the start of a paragraph starts a bulleted
+  // list, "1. " or "1) " a numbered one (Outlook's AutoFormat); Ctrl+Z
+  // takes it back.
+  function autoList(c, event) {
+    if (event.inputType !== "insertText" || event.data !== " ") {
+      return;
+    }
+    const selection = window.getSelection();
+    if (!selection.rangeCount || !selection.isCollapsed) {
+      return;
+    }
+    const range = selection.getRangeAt(0);
+    if (!c.editor.contains(range.startContainer) || blockOf(c, range.startContainer).closest("li")) {
+      return;
+    }
+    const before = textBeforeCaret(c, range);
+    const match = /^[\s\u00a0]*([-*\u2022]|1[.)])[\s\u00a0]$/.exec(before.toString());
+    if (!match) {
+      return;
+    }
+    selection.removeAllRanges();
+    selection.addRange(before);
+    doc.execCommand("delete", false, null);
+    doc.execCommand(match[1].startsWith("1") ? "insertOrderedList" : "insertUnorderedList", false, null);
+    saveSelection(c);
+    markDirty(c);
+    updateToolState(c);
   }
 
   // Arrow keys, Home / End and Page Up / Down in the text. The pane is a

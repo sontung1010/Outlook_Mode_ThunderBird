@@ -1,6 +1,6 @@
 # Outlook Mode add-on: security notes
 
-What the **Outlook Mode** Thunderbird add-on (version **3.9.43**) does with the network, your credentials and your data. Every statement below was checked against the package.
+What the **Outlook Mode** Thunderbird add-on (version **3.9.44**) does with the network, your credentials and your data. Every statement below was checked against the package.
 
 ## 1. Identification
 
@@ -8,9 +8,9 @@ What the **Outlook Mode** Thunderbird add-on (version **3.9.43**) does with the 
 | --- | --- |
 | Name | Outlook Mode |
 | Add-on ID | `outlook-mention@tung.local` |
-| Version | 3.9.43 |
-| File | `outlook-mode.xpi` (225,360 bytes) |
-| SHA-256 | `03bd4cf4cf2caa4e5ec7cecefb82b8e67a85721c27c1b977bba1fc5efce9bb0c` |
+| Version | 3.9.44 |
+| File | `outlook-mode.xpi` (227,480 bytes) |
+| SHA-256 | `28a32ac98413937e64722f76d8c4a14830750b3b9749b303cec60fb8dc2749a6` |
 | Source | The package is a plain zip of the add-on's source files and its `LICENSE`. Unzip it to read the code. |
 | License | MIT (see `LICENSE`). |
 | Code | About 18,700 lines of plain, unminified JavaScript, HTML and CSS written for this add-on. No bundled third-party libraries. |

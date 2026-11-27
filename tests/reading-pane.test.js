@@ -235,6 +235,48 @@ window.scrollTo = pageScrollTo;
   assert.ok(ran("removeFormat"), "Ctrl+Space clears formatting");
   assert.equal(leaked, 0, "keys stay in the composer");
 
+  // 3a. Tab stays in the text: a tab mid-line, indent at the start of a
+  // paragraph, list levels in a list; "- " / "1. " start a list.
+  const caret = (node, offset) => window.getSelection().collapse(node, offset);
+  const lastExec = () => window.__exec.filter(([c]) => c !== "styleWithCSS").at(-1);
+  const cssMode = () => window.__exec.filter(([c]) => c === "styleWithCSS").at(-2)?.[1];
+  window.__exec = [];
+  caret(editor.firstChild, 5); // "Hello| Ann"
+  assert.equal(key(editor, "Tab"), false, "Tab default prevented (focus stays in the text)");
+  assert.deepEqual(lastExec(), ["insertText", "\u00a0\u00a0\u00a0\u00a0"], "mid-line: a tab");
+  const para = document.createElement("div");
+  para.textContent = "Second paragraph";
+  editor.append(para);
+  caret(para.firstChild, 0);
+  key(editor, "Tab");
+  assert.deepEqual(lastExec(), ["indent", null], "start of a paragraph: indented");
+  assert.equal(cssMode(), true, "as a margin, not a quote");
+  key(editor, "Tab", { shiftKey: true });
+  assert.deepEqual(lastExec(), ["outdent", null], "Shift+Tab: back");
+  const list = document.createElement("ul");
+  list.innerHTML = "<li>First</li><li>Second</li>";
+  editor.append(list);
+  caret(list.lastChild.firstChild, 3); // mid-item
+  key(editor, "Tab");
+  assert.deepEqual(lastExec(), ["indent", null], "in a list: one level in");
+  assert.equal(cssMode(), false, "a list inside the list");
+  key(editor, "Tab", { shiftKey: true });
+  assert.deepEqual(lastExec(), ["outdent", null], "Shift+Tab: one level out");
+  const typed = (text) => {
+    const line = document.createElement("div");
+    line.textContent = text;
+    editor.append(line);
+    caret(line.firstChild, text.length);
+    window.__exec = [];
+    editor.dispatchEvent(new window.InputEvent("input", { bubbles: true, inputType: "insertText", data: " " }));
+    return window.__exec.map(([c]) => c);
+  };
+  assert.deepEqual(typed("- "), ["delete", "insertUnorderedList"], '"- " starts a bulleted list');
+  assert.deepEqual(typed("* "), ["delete", "insertUnorderedList"]);
+  assert.deepEqual(typed("1. "), ["delete", "insertOrderedList"], '"1. " starts a numbered list');
+  assert.deepEqual(typed("Note - "), [], "not at the start: plain text");
+  assert.equal(leaked, 0, "Tab does not reach Thunderbird either");
+
   // 3b. Outlook's Format Text tools.
   const tool = (name) => $(`.ol-composer .ol-tool-${name}`);
   for (const name of ["undo", "font", "size", "strikeThrough", "superscript", "colorMenu", "highlightMenu",

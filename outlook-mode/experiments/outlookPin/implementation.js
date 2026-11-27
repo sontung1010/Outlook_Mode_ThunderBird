@@ -100,9 +100,119 @@ function conversationPinned(hdr) {
   return false;
 }
 
+/* ------------------------------------------------------------------ */
+/* Your replies count in the conversation, as in Outlook               */
+/* ------------------------------------------------------------------ */
+
+// A reply you send goes to Sent Items, so in the Inbox its conversation kept
+// the place and the card of its last received mail. Outlook counts your
+// replies (from any folder) in the conversation: it moves up and its card
+// shows your reply. Here, for each account, the mail in its Sent folders is
+// indexed by the Message-IDs it refers to (References: the mail it answers
+// and that one's own chain); a conversation's newest reply of yours is the
+// newest sent mail referring to one of its messages. The index is made again
+// when a Sent folder changes (and its message count is looked at again at
+// most every SENT_INDEX_CHECK_MS).
+const SENT_INDEX_CHECK_MS = 2000;
+const sentIndexes = new Map(); // server key -> { stamp, checkedAt, replies: Map(id -> { date, author }) }
+
+function isSentFolder(folder) {
+  try {
+    return folder.isSpecialFolder(Ci.nsMsgFolderFlags.SentMail, true);
+  } catch (error) {
+    return false;
+  }
+}
+
+function sentFoldersOf(server) {
+  try {
+    return [...server.rootFolder.getFoldersWithFlags(Ci.nsMsgFolderFlags.SentMail)];
+  } catch (error) {
+    return [];
+  }
+}
+
+function sentIndex(server) {
+  if (!server) {
+    return null;
+  }
+  const now = Date.now();
+  let entry = sentIndexes.get(server.key);
+  if (entry && now - entry.checkedAt < SENT_INDEX_CHECK_MS) {
+    return entry.replies;
+  }
+  const folders = sentFoldersOf(server);
+  const stamp = folders.map((folder) => `${folder.URI}:${folder.getTotalMessages(false)}`).join("|");
+  if (entry && entry.stamp == stamp) {
+    entry.checkedAt = now;
+    return entry.replies;
+  }
+  const replies = new Map();
+  for (const folder of folders) {
+    try {
+      for (const hdr of folder.msgDatabase.enumerateMessages()) {
+        for (let i = 0; i < hdr.numReferences; i++) {
+          const id = hdr.getStringReference(i);
+          const known = replies.get(id);
+          if (id && (!known || hdr.dateInSeconds > known.date)) {
+            replies.set(id, { date: hdr.dateInSeconds, author: hdr.mime2DecodedAuthor || "" });
+          }
+        }
+      }
+    } catch (error) {
+      console.error("[outlook-mode] sent mail index", error);
+    }
+  }
+  entry = { stamp, checkedAt: now, replies };
+  sentIndexes.set(server.key, entry);
+  return replies;
+}
+
+function forgetSentIndex(folder) {
+  if (folder && folder.server && isSentFolder(folder)) {
+    sentIndexes.delete(folder.server.key);
+    return true;
+  }
+  return false;
+}
+
+// Your newest reply in the conversation of these messages (all in one
+// folder, not a Sent folder): { date (s), author } or null.
+function newestOwnReply(hdrs) {
+  const first = hdrs[0];
+  if (!first || !first.folder || isSentFolder(first.folder)) {
+    return null;
+  }
+  const replies = sentIndex(first.folder.server);
+  let newest = null;
+  for (const hdr of hdrs) {
+    const reply = replies && hdr.messageId ? replies.get(hdr.messageId) : null;
+    if (reply && (!newest || reply.date > newest.date)) {
+      newest = reply;
+    }
+  }
+  return newest;
+}
+
+function threadHdrs(hdr) {
+  const hdrs = [hdr];
+  try {
+    const thread = hdr.folder.msgDatabase.getThreadContainingMsgHdr(hdr);
+    for (let i = 0; thread && i < thread.numChildren; i++) {
+      const child = thread.getChildHdrAt(i);
+      if (child && child.messageKey != hdr.messageKey) {
+        hdrs.push(child);
+      }
+    }
+  } catch (error) {
+    // the message alone
+  }
+  return hdrs;
+}
+
 // The date a message is sorted by, in seconds: a thread is placed by its
 // root row, which gets the date of the newest message so active
-// conversations come first.
+// conversations come first (your replies in Sent Items included).
 // The newest date is read from the thread's mail itself: the thread's own
 // newestMsgDate is not always updated (Microsoft 365 accounts keep some
 // thread counts stale, see repairThreadCounts).
@@ -113,11 +223,17 @@ function sortDate(hdr) {
     const root = thread?.getRootHdr();
     if (root && root.messageKey == hdr.messageKey) {
       date = Math.max(date, thread.newestMsgDate);
+      const hdrs = [hdr];
       for (let i = 0; i < thread.numChildren; i++) {
         const child = thread.getChildHdrAt(i);
         if (child) {
           date = Math.max(date, child.dateInSeconds);
+          hdrs.push(child);
         }
+      }
+      const reply = newestOwnReply(hdrs);
+      if (reply) {
+        date = Math.max(date, reply.date);
       }
     }
   } catch (error) {
@@ -180,9 +296,16 @@ function resortSoon(about3Pane) {
 }
 
 function resortShowing(changedFolder) {
+  // Mail in a Sent folder moves the conversations it answers, in the other
+  // folders of its account.
+  const sent = forgetSentIndex(changedFolder);
   for (const about3Pane of pinnedSortedPanes()) {
     const folder = about3Pane.gFolder;
-    if (about3Pane.gViewWrapper?.isVirtual || (folder && changedFolder && folder.URI == changedFolder.URI)) {
+    if (
+      about3Pane.gViewWrapper?.isVirtual ||
+      (folder && changedFolder && folder.URI == changedFolder.URI) ||
+      (sent && folder && folder.server && folder.server.key == changedFolder.server.key)
+    ) {
       resortSoon(about3Pane);
     }
   }
@@ -718,8 +841,8 @@ function layoutSections(about3Pane, recount = true) {
 }
 
 // A closed conversation's card shows, as in Outlook, who sent its newest
-// mail (in this folder) and when, not its first mail. The subject stays
-// the conversation's.
+// mail and when (your reply in Sent Items included), not its first mail.
+// The subject stays the conversation's.
 const NEWEST_DATE = new Intl.DateTimeFormat(undefined, { dateStyle: "short", timeStyle: "short" });
 const NEWEST_TIME = new Intl.DateTimeFormat(undefined, { timeStyle: "short" });
 
@@ -742,25 +865,30 @@ function showNewestInCard(about3Pane, card) {
   if (!listState.newestInCard || !view || typeof index != "number" || index >= view.rowCount) {
     return;
   }
-  if (!view.isContainer(index) || view.isContainerOpen(index)) {
-    return; // a single mail, or an open thread: each card is its own mail
+  const container = view.isContainer(index);
+  if (container && view.isContainerOpen(index)) {
+    return; // an open thread: each card is its own mail
   }
   const hdr = view.getMsgHdrAt(index);
-  const thread = hdr.folder.msgDatabase.getThreadContainingMsgHdr(hdr);
-  let newest = hdr;
-  for (let i = 0; thread && i < thread.numChildren; i++) {
-    const child = thread.getChildHdrAt(i);
-    if (child && child.date > newest.date) {
-      newest = child;
+  // A single mail is a conversation too when you answered it.
+  const hdrs = container ? threadHdrs(hdr) : [hdr];
+  let newest = { date: hdr.dateInSeconds, author: hdr.mime2DecodedAuthor };
+  for (const child of hdrs) {
+    if (child.dateInSeconds > newest.date) {
+      newest = { date: child.dateInSeconds, author: child.mime2DecodedAuthor };
     }
   }
-  if (newest == hdr) {
+  const reply = newestOwnReply(hdrs);
+  if (reply && reply.date > newest.date) {
+    newest = reply;
+  }
+  if (newest.date == hdr.dateInSeconds && newest.author == hdr.mime2DecodedAuthor) {
     return;
   }
-  const name = authorName(newest);
+  const name = authorName({ mime2DecodedAuthor: newest.author });
   card.senderLine.textContent = name;
-  card.senderLine.title = newest.mime2DecodedAuthor || name;
-  const date = new Date(newest.date / 1000);
+  card.senderLine.title = newest.author || name;
+  const date = new Date(newest.date * 1000);
   const today = new Date();
   card.dateLine.textContent = (
     date.toDateString() == today.toDateString() ? NEWEST_TIME : NEWEST_DATE
